@@ -15,14 +15,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MasterOpd, MasterKugi } from "@/types/database";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 interface ManualAddDialogProps {
   opdList: MasterOpd[];
   kugiList?: MasterKugi[];
   onSuccess: () => void;
+  size?: "default" | "sm";
+  className?: string;
 }
 
-export function ManualAddDialog({ opdList, onSuccess }: ManualAddDialogProps) {
+export function ManualAddDialog({ opdList, kugiList, onSuccess, size = "sm", className }: ManualAddDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -88,8 +91,12 @@ export function ManualAddDialog({ opdList, onSuccess }: ManualAddDialogProps) {
   return (
     <>
       <Button
+        size={size}
         onClick={() => setIsOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold"
+        className={cn(
+          "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs text-xs font-medium",
+          className
+        )}
       >
         <PlusCircle className="h-4 w-4 mr-1.5" />
         Tambah Data

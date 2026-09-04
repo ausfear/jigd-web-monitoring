@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +53,8 @@ import { MergeDataDialog } from "@/components/dashboard/merge-data-dialog";
 import { VerificationEditDialog } from "@/components/dashboard/verification-edit-dialog";
 
 function DashboardContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const opdParam = searchParams.get("opd");
 
@@ -69,7 +71,7 @@ function DashboardContent() {
 
   // Filters & Search
   const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedOpdId, setSelectedOpdId] = useState<string>("all");
+  const [selectedOpd, setSelectedOpd] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Pagination States
@@ -146,15 +148,17 @@ function DashboardContent() {
           o.id === opdParam
       );
       if (matched) {
-        setSelectedOpdId(matched.id);
+        setSelectedOpd(matched.username_jigd?.toLowerCase() || matched.id);
       }
+    } else if (!opdParam) {
+      setSelectedOpd("all");
     }
   }, [opdParam, opdList]);
 
   // Reset to page 1 whenever any filter or page size changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedYear, selectedOpdId, searchQuery, pageSize]);
+  }, [selectedYear, selectedOpd, searchQuery, pageSize]);
 
   /**
    * Trigger GeoNode Sync manually
@@ -312,6 +316,17 @@ function DashboardContent() {
     return Array.from(yearsSet).sort((a, b) => b - a);
   }, [dataList]);
 
+  // Dynamically extract all unique tag_bidang values
+  const availableTags = useMemo(() => {
+    return Array.from(
+      new Set(
+        dataList
+          .map((d) => d.tag_bidang?.trim())
+          .filter((t): t is string => Boolean(t))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [dataList]);
+
   // Filtered dataset logic (Tahun + OPD + Search)
   const filteredData = useMemo(() => {
     return dataList.filter((item) => {
@@ -323,13 +338,17 @@ function DashboardContent() {
 
       // 2. OPD Filter
       const matchOpd =
-        selectedOpdId === "all" || item.opd_id === selectedOpdId;
+        selectedOpd === "all" ||
+        item.opd_id === selectedOpd ||
+        (item.master_opd?.username_jigd &&
+          item.master_opd.username_jigd.toLowerCase() === selectedOpd.toLowerCase());
 
       const query = searchQuery.toLowerCase().trim();
       const opdName = item.master_opd?.nama_opd?.toLowerCase() || "";
       const opdUser = item.master_opd?.username_jigd?.toLowerCase() || "";
       const kugiName = item.master_kugi?.nama_unsur?.toLowerCase() || item.kugi_nama_unsur?.toLowerCase() || "";
       const kugiCode = item.master_kugi?.kode_unsur?.toLowerCase() || "";
+      const tagBidang = item.tag_bidang?.toLowerCase() || "";
       const dataName = item.nama_data.toLowerCase();
 
       const matchSearch =
@@ -338,11 +357,12 @@ function DashboardContent() {
         opdName.includes(query) ||
         opdUser.includes(query) ||
         kugiName.includes(query) ||
-        kugiCode.includes(query);
+        kugiCode.includes(query) ||
+        tagBidang.includes(query);
 
       return matchYear && matchOpd && matchSearch;
     });
-  }, [dataList, selectedYear, selectedOpdId, searchQuery]);
+  }, [dataList, selectedYear, selectedOpd, searchQuery]);
 
   // Pagination Slicing
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
@@ -422,7 +442,7 @@ function DashboardContent() {
               size="sm"
               onClick={handleSyncGeoNode}
               disabled={isSyncing}
-              className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-2xs font-medium"
+              className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-2xs text-xs font-medium"
             >
               <RefreshCw className={`h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "Sinkronisasi..." : "Sinkronisasi GeoNode"}
@@ -449,14 +469,11 @@ function DashboardContent() {
 
         {/* 1. OVERVIEW SECTION (4 STAT CARDS) */}
         <section className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center mb-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               Overview Indikator Keterisian
             </h2>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Database Supabase Terhubung
-            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -575,13 +592,21 @@ function DashboardContent() {
                 <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <select
                   id="filter-opd"
-                  value={selectedOpdId}
-                  onChange={(e) => setSelectedOpdId(e.target.value)}
+                  value={selectedOpd}
+                  onChange={(e) => {
+                    const selectedValue = e.target.value;
+                    setSelectedOpd(selectedValue);
+                    if (selectedValue === "all") {
+                      router.replace(pathname, { scroll: false });
+                    } else {
+                      router.replace(`${pathname}?opd=${selectedValue}`, { scroll: false });
+                    }
+                  }}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer truncate text-left max-w-[200px]"
                 >
                   <option value="all">Semua Perangkat Daerah</option>
                   {activeGeoportalOpds.map((opd) => (
-                    <option key={opd.id} value={opd.id}>
+                    <option key={opd.id} value={opd.username_jigd?.toLowerCase() || opd.id}>
                       {opd.nama_opd} {opd.username_jigd ? `(@${opd.username_jigd})` : ""}
                     </option>
                   ))}
@@ -625,9 +650,9 @@ function DashboardContent() {
             </div>
 
             <div className="flex items-center gap-2">
-              {selectedOpdId !== "all" && (
+              {selectedOpd !== "all" && (
                 <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[11px] font-medium truncate max-w-[200px]">
-                  OPD: {opdList.find(o => o.id === selectedOpdId)?.nama_opd || "Terfilter"}
+                  OPD: {opdList.find(o => o.id === selectedOpd || o.username_jigd?.toLowerCase() === selectedOpd.toLowerCase())?.nama_opd || "Terfilter"}
                 </Badge>
               )}
               {selectedYear !== "all" && (
@@ -740,8 +765,18 @@ function DashboardContent() {
 
                         {/* 2. Daftar Data Geospasial: whitespace-normal break-words min-w-[250px] */}
                         <TableCell className="py-3.5 align-top whitespace-normal break-words min-w-[250px]">
-                          <div className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-relaxed">
-                            {item.nama_data}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-relaxed">
+                              {item.nama_data}
+                            </span>
+                            {item.tag_bidang && (
+                              <Badge
+                                variant="secondary"
+                                className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] uppercase font-semibold tracking-wider"
+                              >
+                                {item.tag_bidang}
+                              </Badge>
+                            )}
                           </div>
                           {primaryLayer ? (
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -971,6 +1006,7 @@ function DashboardContent() {
         onClose={() => setEditingRecord(null)}
         allCachedLayers={cachedLayers}
         allKugi={kugiList}
+        availableTags={availableTags}
         onSuccess={fetchData}
       />
 

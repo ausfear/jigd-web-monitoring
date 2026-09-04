@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { MasterOpd } from "@/types/database";
 import { findBestOpdMatch } from "@/lib/fuzzy-matcher";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 interface CsvRow {
   nama_data: string;
@@ -45,9 +46,11 @@ interface ProducerMapping {
 interface CsvUploadDialogProps {
   opdList: MasterOpd[];
   onSuccess: () => void;
+  size?: "default" | "sm";
+  className?: string;
 }
 
-export function CsvUploadDialog({ opdList, onSuccess }: CsvUploadDialogProps) {
+export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: CsvUploadDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isInserting, setIsInserting] = useState(false);
@@ -265,8 +268,12 @@ export function CsvUploadDialog({ opdList, onSuccess }: CsvUploadDialogProps) {
     <>
       <Button
         variant="outline"
+        size={size}
         onClick={() => setIsOpen(true)}
-        className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs font-semibold"
+        className={cn(
+          "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-2xs text-xs font-medium",
+          className
+        )}
       >
         <Upload className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />
         Upload Daftar Data (CSV)

@@ -44,6 +44,7 @@ export interface DaftarData {
   kugi_id: string | null;
   kugi_nama_unsur?: string | null;
   nama_data: string;
+  tag_bidang?: string | null;
   tahun_berlaku: number[];
   layer_utama_uuid: string | null;
   layer_pelengkap_uuids: string[];

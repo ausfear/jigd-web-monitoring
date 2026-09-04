@@ -14,7 +14,8 @@ import {
   X,
   AlertCircle,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Plus
 } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +51,7 @@ interface VerificationEditDialogProps {
   onClose: () => void;
   allCachedLayers: CacheLayerGeoportal[];
   allKugi: MasterKugi[];
+  availableTags?: string[];
   onSuccess: () => void;
 }
 
@@ -59,6 +61,7 @@ export function VerificationEditDialog({
   onClose,
   allCachedLayers,
   allKugi,
+  availableTags = [],
   onSuccess,
 }: VerificationEditDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
@@ -66,6 +69,9 @@ export function VerificationEditDialog({
 
   // Form states
   const [namaData, setNamaData] = useState("");
+  const [tagBidang, setTagBidang] = useState<string>("");
+  const [openTagBidang, setOpenTagBidang] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
   const [years, setYears] = useState<number[]>([]);
 
   // Cascading KUGI states
@@ -88,6 +94,9 @@ export function VerificationEditDialog({
   useEffect(() => {
     if (record) {
       setNamaData(record.nama_data || "");
+      setTagBidang(record.tag_bidang || "");
+      setTagSearch("");
+      setOpenTagBidang(false);
       setYears(record.tahun_berlaku || [2026]);
       setSelectedKugiId(record.kugi_id || null);
 
@@ -225,6 +234,7 @@ export function VerificationEditDialog({
         .from("daftar_data")
         .update({
           nama_data: namaData.trim(),
+          tag_bidang: tagBidang.trim() || null,
           kugi_id: kugiIdToSave,
           kugi_nama_unsur: kugiNamaUnsurToSave,
           tahun_berlaku: years,
@@ -323,6 +333,118 @@ export function VerificationEditDialog({
               className="text-xs font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
               placeholder="Contoh: Peta Batas Administrasi..."
             />
+          </div>
+
+          {/* Tag / Bidang (Opsional) - Creatable Combobox */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                Tag / Bidang (Opsional)
+              </label>
+              {tagBidang && (
+                <button
+                  type="button"
+                  onClick={() => setTagBidang("")}
+                  className="text-[11px] text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-0.5 cursor-pointer transition-colors"
+                >
+                  <X className="h-3 w-3" /> Hapus Tag
+                </button>
+              )}
+            </div>
+            <Popover open={openTagBidang} onOpenChange={setOpenTagBidang}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openTagBidang}
+                    className="w-full justify-between text-left font-medium h-10 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs"
+                  >
+                    <span className="truncate">
+                      {tagBidang || "-- Pilih atau Buat Tag / Bidang --"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                }
+              />
+              <PopoverContent
+                className="w-[--anchor-width] min-w-[340px] p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                align="start"
+              >
+                <Command>
+                  <CommandInput
+                    placeholder="Ketik untuk mencari atau membuat tag..."
+                    className="text-xs"
+                    value={tagSearch}
+                    onValueChange={setTagSearch}
+                  />
+                  <CommandList className="max-h-[220px] overflow-y-auto">
+                    <CommandEmpty className="p-3 text-xs text-center">
+                      <div className="text-slate-500 mb-2">Tidak ada tag yang cocok.</div>
+                      {tagSearch.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTagBidang(tagSearch.trim());
+                            setTagSearch("");
+                            setOpenTagBidang(false);
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-medium text-xs cursor-pointer transition-colors"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Buat tag &quot;{tagSearch.trim()}&quot;</span>
+                        </button>
+                      )}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {availableTags.map((tag) => (
+                        <CommandItem
+                          key={tag}
+                          value={tag}
+                          onSelect={() => {
+                            setTagBidang(tag);
+                            setTagSearch("");
+                            setOpenTagBidang(false);
+                          }}
+                          className="text-xs cursor-pointer py-1.5 focus:bg-slate-100 dark:focus:bg-slate-800"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-3.5 w-3.5 text-blue-600 dark:text-blue-400",
+                              tagBidang.toLowerCase() === tag.toLowerCase()
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {tag}
+                          </span>
+                        </CommandItem>
+                      ))}
+
+                      {tagSearch.trim() &&
+                        !availableTags.some(
+                          (t) => t.toLowerCase() === tagSearch.trim().toLowerCase()
+                        ) && (
+                          <CommandItem
+                            value={tagSearch.trim()}
+                            onSelect={() => {
+                              setTagBidang(tagSearch.trim());
+                              setTagSearch("");
+                              setOpenTagBidang(false);
+                            }}
+                            className="text-xs cursor-pointer py-2 text-blue-600 dark:text-blue-400 font-medium border-t border-slate-100 dark:border-slate-800 hover:bg-blue-50/50 dark:hover:bg-blue-950/40"
+                          >
+                            <Plus className="mr-2 h-3.5 w-3.5" />
+                            <span>Buat tag &quot;{tagSearch.trim()}&quot;</span>
+                          </CommandItem>
+                        )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* 3. Tahun Berlaku Management: Predefined 2024, 2025, 2026 ONLY */}

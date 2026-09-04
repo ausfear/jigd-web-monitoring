@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,8 @@ import { supabase } from "@/lib/supabase";
 import { CacheLayerGeoportal, MasterOpd } from "@/types/database";
 
 function DatasetsContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const opdParam = searchParams.get("opd");
 
@@ -93,6 +95,8 @@ function DatasetsContent() {
           setSelectedOpdUsername(directMatch.owner_username.toLowerCase());
         }
       }
+    } else if (!opdParam) {
+      setSelectedOpdUsername("all");
     }
   }, [opdParam, opdList, layers]);
 
@@ -223,12 +227,20 @@ function DatasetsContent() {
                 <select
                   id="filter-opd-datasets"
                   value={selectedOpdUsername}
-                  onChange={(e) => setSelectedOpdUsername(e.target.value)}
+                  onChange={(e) => {
+                    const selectedValue = e.target.value;
+                    setSelectedOpdUsername(selectedValue);
+                    if (selectedValue === "all") {
+                      router.replace(pathname, { scroll: false });
+                    } else {
+                      router.replace(`${pathname}?opd=${selectedValue}`, { scroll: false });
+                    }
+                  }}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer truncate text-left max-w-[200px]"
                 >
                   <option value="all">Semua Perangkat Daerah</option>
                   {activeGeoportalOpds.map((opd) => (
-                    <option key={opd.id} value={opd.username_jigd || ""}>
+                    <option key={opd.id} value={opd.username_jigd?.toLowerCase() || ""}>
                       {opd.nama_opd} {opd.username_jigd ? `(@${opd.username_jigd})` : ""}
                     </option>
                   ))}
@@ -305,6 +317,7 @@ function DatasetsContent() {
                     setSearchQuery("");
                     setSelectedOpdUsername("all");
                     setSelectedGeometry("all");
+                    router.replace(pathname, { scroll: false });
                   }}
                   className="text-xs"
                 >
