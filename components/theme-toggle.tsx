@@ -16,7 +16,7 @@ export function ThemeToggle() {
         variant="outline"
         size="icon"
         aria-label="Memuat tema"
-        className="h-9 w-9 rounded-lg border-slate-200 dark:border-slate-800 text-slate-400"
+        className="h-9 w-9 border-ink/30 bg-transparent text-ink-2"
         disabled
       >
         <span className="h-4 w-4" />
@@ -31,14 +31,14 @@ export function ThemeToggle() {
       variant="outline"
       size="icon"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      title={isDark ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
-      aria-label="Toggle theme"
-      className="h-9 w-9 rounded-lg border-slate-200 bg-white hover:bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-300 transition-colors shadow-2xs"
+      title={isDark ? "Beralih ke mode terang" : "Beralih ke mode gelap"}
+      aria-label={isDark ? "Beralih ke mode terang" : "Beralih ke mode gelap"}
+      className="h-9 w-9 border-ink/30 bg-transparent text-ink hover:bg-ink/5 dark:bg-transparent dark:hover:bg-ink/10"
     >
       {isDark ? (
-        <Sun className="h-4 w-4 text-amber-400 transition-transform duration-200" />
+        <Sun className="h-4 w-4" />
       ) : (
-        <Moon className="h-4 w-4 text-slate-700 transition-transform duration-200" />
+        <Moon className="h-4 w-4" />
       )}
     </Button>
   );

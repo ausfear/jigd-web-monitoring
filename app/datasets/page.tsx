@@ -5,9 +5,10 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
 import { SkeletonRows } from "@/components/ui/skeleton";
+import { PageHeader, controlClass } from "@/components/lembar-peta";
+import { cn } from "@/lib/utils";
 import { useQueryParams, useDebouncedQueryText, readPageParam } from "@/lib/use-query-params";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,11 +22,7 @@ import {
 import {
   Database,
   Search,
-  Building2,
   ExternalLink,
-  Layers,
-  Globe2,
-  Calendar,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -163,71 +160,54 @@ function DatasetsContent() {
   const endIndex = Math.min(currentPage * pageSize, filteredLayers.length);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans transition-colors">
+    <div className="min-h-screen flex flex-col">
       <Navbar currentPage="datasets" />
 
-      <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
+      <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <DbErrorBanner message={loadError} />
-        {/* Page Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-          <div>
-            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
-              JIGD Kaltim
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-              Katalog Dataset Layer Geoportal
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-              Eksplorasi seluruh layer peta, tipe geometri, sistem koordinat, dan produsen data terpublikasi di GeoNode.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs text-xs font-medium text-slate-600 dark:text-slate-400">
-              Total Dataset Aktif: <strong className="text-blue-600 dark:text-blue-400 font-bold">{layers.length}</strong>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Katalog layer Geoportal"
+          description={
+            <>
+              {isLoading ? "Memuat layer…" : `${layers.length} layer`} di GeoNode JIGD beserta pemilik, tipe geometri, dan sistem koordinatnya.
+            </>
+          }
+        />
 
         {/* Catalog Table Section */}
-        <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        <section className="border-y-2 border-ink bg-sheet">
           {/* Controls Bar */}
-          <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+          <div className="px-4 py-4 sm:px-5 border-b border-ink flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                Daftar Layer Geoportal
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Pencarian dan penapisan metadata layer spasial tersinkronisasi
-              </p>
+              <h2 className="font-cond text-[21px] font-bold">Daftar layer</h2>
+              <p className="text-sm text-ink-2 mt-0.5">Cari menurut judul, nama layer, OPD, atau SRID.</p>
             </div>
 
             {/* Filter controls */}
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Search */}
               <div className="relative min-w-[220px] flex-1 sm:flex-initial">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-2" />
                 <Input
                   type="text"
                   placeholder="Cari judul, layer, OPD, SRID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
+                  className="pl-9 h-9 text-sm bg-sheet border-ink/40 focus-visible:ring-qty/30"
                 />
               </div>
 
               {/* Filter OPD */}
               <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
-                <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <select
                   id="filter-opd-datasets"
+                  aria-label="Perangkat daerah"
                   value={selectedOpdUsername}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
                     setParams({ opd: selectedValue === "all" ? null : selectedValue, page: null });
                   }}
-                  className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer truncate text-left max-w-[200px]"
+                  className={cn(controlClass, "pr-8 cursor-pointer truncate text-left max-w-[200px]")}
                 >
                   <option value="all">Semua Perangkat Daerah</option>
                   {activeGeoportalOpds.map((opd) => (
@@ -240,12 +220,12 @@ function DatasetsContent() {
 
               {/* Filter Tipe Geometri */}
               <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
-                <Layers className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <select
                   id="filter-geometry"
+                  aria-label="Tipe geometri"
                   value={selectedGeometry}
                   onChange={(e) => setParams({ geom: e.target.value === "all" ? null : e.target.value, page: null })}
-                  className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                  className={cn(controlClass, "pr-8 cursor-pointer")}
                 >
                   <option value="all">Semua Geometri</option>
                   {availableGeometries.map((geo) => (
@@ -259,27 +239,24 @@ function DatasetsContent() {
           </div>
 
           {/* Quick Stat Bar */}
-          <div className="px-5 py-2.5 bg-slate-50/70 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-600 dark:text-slate-400 gap-2">
+          <div className="px-4 sm:px-5 py-2.5 border-b border-rule flex flex-wrap items-center justify-between text-sm text-ink-2 gap-2">
             <div className="flex items-center gap-3">
               <span>
-                Menampilkan <strong className="text-slate-900 dark:text-slate-100">{filteredLayers.length}</strong> layer
-                {selectedOpdUsername !== "all" && (
-                  <span className="ml-1 text-blue-600 dark:text-blue-400 font-semibold">
-                    (Filter OPD: @{selectedOpdUsername})
-                  </span>
-                )}
+                {filteredLayers.length} layer
+                {selectedOpdUsername !== "all" && <> milik @{selectedOpdUsername}</>}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">Baris per halaman:</span>
+              <span className="text-sm text-ink-2">Baris per halaman</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   goToPage(1);
                 }}
-                className="h-7 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 outline-none"
+                aria-label="Baris per halaman"
+                className={cn(controlClass, "h-8 px-2")}
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -293,12 +270,12 @@ function DatasetsContent() {
             <SkeletonRows rows={10} />
           ) : paginatedLayers.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-center px-4">
-              <Database className="h-10 w-10 text-slate-300 dark:text-slate-700" />
+              <Database className="h-10 w-10 text-ink-2/60" />
               <div className="max-w-md">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
+                <h4 className="text-sm font-bold text-ink mb-1">
                   Tidak ada dataset yang cocok
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                <p className="text-xs text-ink-2 mb-4">
                   Coba sesuaikan kata kunci pencarian atau bersihkan filter OPD untuk melihat seluruh layer.
                 </p>
                 <Button
@@ -317,39 +294,38 @@ function DatasetsContent() {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
-                  <TableRow className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <TableHead className="hidden sm:table-cell w-[50px] text-center font-bold">#</TableHead>
-                    <TableHead className="md:min-w-[280px] font-bold">Title / Nama Layer</TableHead>
-                    <TableHead className="hidden md:table-cell min-w-[200px] font-bold">Workspace / OPD</TableHead>
-                    <TableHead className="hidden lg:table-cell min-w-[140px] font-bold">Tipe Data</TableHead>
-                    <TableHead className="hidden lg:table-cell min-w-[120px] font-bold">SRID</TableHead>
-                    <TableHead className="w-[60px] md:w-[100px] text-center font-bold">Aksi</TableHead>
+                <TableHeader>
+                  <TableRow className="border-b border-ink hover:bg-transparent">
+                    <TableHead className="hidden sm:table-cell w-[50px] text-center font-cond font-semibold">No.</TableHead>
+                    <TableHead className="md:min-w-[280px] font-cond font-semibold">Judul dan nama layer</TableHead>
+                    <TableHead className="hidden md:table-cell min-w-[200px] font-cond font-semibold">Pemilik (OPD)</TableHead>
+                    <TableHead className="hidden lg:table-cell min-w-[120px] font-cond font-semibold">Geometri</TableHead>
+                    <TableHead className="hidden lg:table-cell min-w-[120px] font-cond font-semibold">SRID</TableHead>
+                    <TableHead className="w-[60px] md:w-[80px] text-center font-cond font-semibold">Buka</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedLayers.map((layer, idx) => (
                     <TableRow
                       key={layer.uuid || layer.id_dataset || idx}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 transition-colors"
+                      className="border-b border-rule hover:bg-qty/5 transition-colors"
                     >
                       {/* Row Index */}
-                      <TableCell className="hidden sm:table-cell text-center text-xs font-mono text-slate-500 dark:text-slate-400">
+                      <TableCell className="hidden sm:table-cell text-center text-sm text-contour tabular-nums">
                         {startIndex + idx}
                       </TableCell>
 
                       {/* Title & Name */}
                       <TableCell className="py-3 whitespace-normal">
-                        <div className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-snug">
+                        <div className="text-sm text-ink leading-snug">
                           {layer.title || "Layer Tanpa Judul"}
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                          <code className="font-mono text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded break-all">
+                          <code className="text-[13px] text-ink-2 break-all">
                             {layer.name}
                           </code>
                           {layer.date_published && (
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
+                            <span className="text-[13px] text-ink-2">
                               {new Date(layer.date_published).toLocaleDateString("id-ID", {
                                 year: "numeric",
                                 month: "short",
@@ -360,41 +336,28 @@ function DatasetsContent() {
                         </div>
 
                         {/* Ringkasan untuk layar kecil (kolom lain disembunyikan) */}
-                        <div className="lg:hidden mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <div className="lg:hidden mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
                           {layer.owner_username && (
-                            <span className="md:hidden font-mono">@{layer.owner_username}</span>
+                            <span className="md:hidden">@{layer.owner_username}</span>
                           )}
                           <span>{layer.geometry_type || "Tidak Terdeteksi"}</span>
-                          <span className="font-mono">{layer.srid || "-"}</span>
+                          <span>{layer.srid || "-"}</span>
                         </div>
                       </TableCell>
 
                       {/* Workspace / OPD */}
                       <TableCell className="hidden md:table-cell whitespace-normal">
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                          {layer.owner_name || "-"}
-                        </div>
+                        <div className="text-sm text-ink">{layer.owner_name || "-"}</div>
                         {layer.owner_username && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] mt-1 font-mono font-normal bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                          >
-                            @{layer.owner_username}
-                          </Badge>
+                          <div className="mt-0.5 text-[13px] text-ink-2">@{layer.owner_username}</div>
                         )}
                       </TableCell>
 
                       {/* Geometry Type */}
                       <TableCell className="hidden lg:table-cell">
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-medium border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300"
-                        >
-                          <Layers className="h-3 w-3 mr-1 text-blue-600 dark:text-blue-400" />
-                          {layer.geometry_type || "Tidak Terdeteksi"}
-                        </Badge>
+                        <div className="text-sm">{layer.geometry_type || "Tidak terdeteksi"}</div>
                         {layer.attribute_count !== undefined && layer.attribute_count !== null && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          <div className="text-[13px] text-ink-2 mt-0.5">
                             {layer.attribute_count} atribut
                           </div>
                         )}
@@ -402,13 +365,7 @@ function DatasetsContent() {
 
                       {/* SRID */}
                       <TableCell className="hidden lg:table-cell">
-                        <Badge
-                          variant="secondary"
-                          className="font-mono text-[11px] bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50"
-                        >
-                          <Globe2 className="h-3 w-3 mr-1 text-blue-600 dark:text-blue-400" />
-                          {layer.srid || "-"}
-                        </Badge>
+                        <span className="text-sm tabular-nums">{layer.srid || "-"}</span>
                       </TableCell>
 
                       {/* Action */}
@@ -418,14 +375,14 @@ function DatasetsContent() {
                             href={layer.dataset_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                            className="inline-flex items-center justify-center h-8 w-8 border border-ink/40 text-qty hover:bg-qty/10 transition-colors"
                             title="Buka layer di Geoportal JIGD"
                             aria-label={`Buka ${layer.title || layer.name} di Geoportal JIGD`}
                           >
-                            <ExternalLink className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         ) : (
-                          <span className="text-xs text-slate-500 dark:text-slate-400">-</span>
+                          <span className="text-xs text-ink-2">-</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -437,10 +394,9 @@ function DatasetsContent() {
 
           {/* Pagination Footer */}
           {!isLoading && filteredLayers.length > 0 && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
-              <div>
-                Menampilkan baris <strong>{startIndex}</strong> - <strong>{endIndex}</strong> dari total{" "}
-                <strong>{filteredLayers.length}</strong> layer
+            <div className="px-4 py-3 sm:px-5 border-t border-ink flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-ink-2">
+              <div className="tabular-nums">
+                Baris {startIndex}–{endIndex} dari {filteredLayers.length} layer
               </div>
 
               <div className="flex items-center gap-2">
@@ -449,13 +405,13 @@ function DatasetsContent() {
                   size="sm"
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800"
+                  className="h-8 px-2.5 text-sm border-ink/40 bg-transparent"
                 >
                   <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                   Sebelumnya
                 </Button>
 
-                <div className="px-2 font-medium text-slate-700 dark:text-slate-300">
+                <div className="px-2 text-ink tabular-nums">
                   Halaman {currentPage} dari {totalPages}
                 </div>
 
@@ -464,7 +420,7 @@ function DatasetsContent() {
                   size="sm"
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800"
+                  className="h-8 px-2.5 text-sm border-ink/40 bg-transparent"
                 >
                   Selanjutnya
                   <ChevronRight className="h-3.5 w-3.5 ml-1" />
@@ -484,8 +440,8 @@ export default function DatasetsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="min-h-screen flex items-center justify-center bg-paper">
+          <Loader2 className="h-8 w-8 animate-spin text-qty" />
         </div>
       }
     >

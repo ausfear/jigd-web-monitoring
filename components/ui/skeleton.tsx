@@ -1,30 +1,37 @@
 import { cn } from "@/lib/utils";
 
-/** Kotak abu-abu berdenyut sebagai penanda tempat konten yang sedang dimuat. */
+/**
+ * Penanda tempat konten yang sedang dimuat. Warnanya tinta tema dengan opasitas rendah,
+ * jadi otomatis pas di mode terang (kertas peta) maupun gelap; sudutnya siku seperti elemen lain.
+ */
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
       aria-hidden="true"
-      className={cn("animate-pulse rounded-md bg-slate-200 dark:bg-slate-800", className)}
+      className={cn("animate-pulse bg-ink/10 motion-reduce:animate-none", className)}
       {...props}
     />
   );
 }
 
-/** Kerangka baris tabel/daftar selama data dimuat. */
+/**
+ * Kerangka baris tabel selama data dimuat, mengikuti bentuk baris tabel tema:
+ * nama + keterangan di kiri, bar keterisian di kanan, tombol aksi kecil.
+ */
 function SkeletonRows({ rows = 6, className }: { rows?: number; className?: string }) {
   return (
-    <div className={cn("divide-y divide-slate-100 dark:divide-slate-800", className)} role="status" aria-label="Memuat data">
+    <div className={cn("divide-y divide-rule", className)} role="status" aria-label="Memuat data">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex items-start gap-4 px-5 py-4">
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-3.5 w-3/5" />
-            <Skeleton className="h-3 w-2/5" />
+        <div key={i} className="flex items-center gap-4 px-4 py-[13px] sm:px-5">
+          <div className="min-w-0 flex-1 space-y-2">
+            {/* lebar bervariasi supaya tidak terlihat seperti blok seragam */}
+            <Skeleton className="h-3.5" style={{ width: `${[62, 48, 70, 55, 66, 44][i % 6]}%` }} />
+            <Skeleton className="h-3 w-1/4" />
           </div>
-          <Skeleton className="hidden md:block h-3.5 w-24" />
-          <Skeleton className="hidden md:block h-3.5 w-32" />
-          <Skeleton className="h-8 w-8 rounded-lg" />
+          <Skeleton className="hidden h-2.5 w-28 md:block" />
+          <Skeleton className="hidden h-3 w-8 md:block" />
+          <Skeleton className="h-8 w-8" />
         </div>
       ))}
       <span className="sr-only">Memuat data…</span>

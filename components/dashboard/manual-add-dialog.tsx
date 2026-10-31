@@ -94,7 +94,7 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
         size={size}
         onClick={() => { setTahun(String(defaultYear)); setIsOpen(true); }}
         className={cn(
-          "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs text-xs font-medium",
+          "h-9 bg-qty hover:bg-qty/90 px-3 text-sm text-sheet",
           className
         )}
       >
@@ -103,49 +103,49 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
       </Button>
 
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="sm:max-w-lg bg-white dark:bg-slate-900 border border-border dark:border-slate-800 text-slate-900 dark:text-slate-100">
+        <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <DialogTitle className="text-lg font-bold text-ink flex items-center gap-2">
+            <Database className="h-5 w-5 text-qty" />
             Tambah Data Geospasial Baru
           </DialogTitle>
-          <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+          <DialogDescription className="text-sm text-ink-2">
             Tambahkan entri data geospasial tematik ke daftar pemantauan JIGD.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           {errorMessage && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 rounded-lg text-xs">
+            <div className="p-3 bg-bound/10 border border-bound/40 text-bound rounded-lg text-sm">
               {errorMessage}
             </div>
           )}
 
           {/* 1. Nama Data Geospasial */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <FileCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              Nama Data Geospasial <span className="text-rose-500">*</span>
+            <label className="text-sm font-semibold text-ink flex items-center gap-1.5">
+              <FileCheck className="h-3.5 w-3.5 text-qty" />
+              Nama Data Geospasial <span className="text-bound">*</span>
             </label>
             <Input
               value={namaData}
               onChange={(e) => setNamaData(e.target.value)}
               placeholder="Contoh: Peta Batas Wilayah Administrasi..."
-              className="text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
+              className="text-sm bg-sheet border-rule focus-visible:ring-qty/30"
               required
             />
           </div>
 
           {/* 2. Perangkat Daerah (OPD) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              Perangkat Daerah (OPD) <span className="text-rose-500">*</span>
+            <label className="text-sm font-semibold text-ink flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-qty" />
+              Perangkat Daerah (OPD) <span className="text-bound">*</span>
             </label>
             <select
               value={opdId}
               onChange={(e) => setOpdId(e.target.value)}
-              className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-medium text-slate-800 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              className="w-full h-10 rounded-lg border border-rule bg-sheet px-3 text-sm font-medium text-ink outline-none transition-colors focus:border-qty focus:ring-2 focus:ring-qty/30"
               required
             >
               <option value="">-- Pilih Perangkat Daerah --</option>
@@ -159,9 +159,9 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
 
           {/* 3. Tahun Berlaku */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              Tahun Berlaku <span className="text-rose-500">*</span>
+            <label className="text-sm font-semibold text-ink flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-qty" />
+              Tahun Berlaku <span className="text-bound">*</span>
             </label>
             <Input
               type="number"
@@ -170,10 +170,10 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
               value={tahun}
               onChange={(e) => setTahun(e.target.value)}
               placeholder={String(defaultYear)}
-              className="text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
+              className="text-sm bg-sheet border-rule focus-visible:ring-qty/30"
               required
             />
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[13px] text-ink-2">
               Tahun penganggaran atau keberlakuan data geospasial.
             </p>
           </div>
@@ -184,14 +184,14 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
               variant="outline"
               onClick={() => setIsOpen(false)}
               disabled={isSubmitting}
-              className="border-slate-200 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="border-rule"
             >
               Batal
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
+              className="bg-qty hover:bg-qty/90 text-sheet font-medium"
             >
               {isSubmitting ? (
                 <>

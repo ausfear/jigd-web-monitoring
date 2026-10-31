@@ -87,20 +87,20 @@ export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(true)}
-        className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-2xs text-xs font-medium"
+        className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
       >
-        <CalendarCog className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />
+        <CalendarCog className="h-4 w-4 mr-1.5" />
         Pengaturan Tahun
       </Button>
 
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setErrorMessage(null); setNewYear(""); } }}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-slate-900 border border-border dark:border-slate-800 text-slate-900 dark:text-slate-100">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <CalendarCog className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <DialogTitle className="text-lg font-bold text-ink flex items-center gap-2">
+              <CalendarCog className="h-5 w-5 text-qty" />
               Pengaturan Tahun Aktif
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+            <DialogDescription className="text-sm text-ink-2">
               Tahun aktif dipakai untuk pilihan tahun di dialog Verifikasi, filter tahun, halaman Overview, dan
               Produsen. Menonaktifkan tahun tidak menghapus data.
             </DialogDescription>
@@ -108,8 +108,8 @@ export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps
 
           <div className="space-y-4 py-2">
             {errorMessage && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 rounded-lg text-xs flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+              <div className="p-3 bg-bound/10 border border-bound/40 text-bound rounded-lg text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-bound" />
                 <span>{errorMessage}</span>
               </div>
             )}
@@ -118,7 +118,7 @@ export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps
               {years.map((y) => (
                 <span
                   key={y}
-                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-lg bg-qty text-sheet text-sm font-semibold"
                 >
                   {y}
                   <button
@@ -126,7 +126,7 @@ export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps
                     onClick={() => handleRemove(y)}
                     disabled={busyYear !== null}
                     title={`Nonaktifkan tahun ${y}`}
-                    className="rounded p-0.5 hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                    className="rounded p-0.5 hover:bg-qty/90 disabled:opacity-50 cursor-pointer"
                   >
                     {busyYear === y ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                   </button>
@@ -141,13 +141,13 @@ export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps
                 placeholder="Contoh: 2027"
                 value={newYear}
                 onChange={(e) => setNewYear(e.target.value)}
-                className="h-9 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                className="h-9 text-sm bg-sheet border-rule"
               />
               <Button
                 type="submit"
                 size="sm"
                 disabled={busyYear !== null || !newYear.trim()}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shrink-0"
+                className="bg-qty hover:bg-qty/90 text-sheet text-sm font-medium shrink-0"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Tambah Tahun

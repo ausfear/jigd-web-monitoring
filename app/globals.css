@@ -7,9 +7,23 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-heading: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+
+  /* Tema "Lembar Peta × Mahakam" (lihat :root dan .dark) */
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-qty: var(--qty);
+  --color-qty-2: var(--qty-2);
+  --color-qty-3: var(--qty-3);
+  --color-done: var(--done);
+  --color-contour: var(--contour);
+  --color-bound: var(--bound);
+  --color-link: var(--link);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +63,79 @@
 }
 
 :root {
-  --background: oklch(0.985 0.005 240);
-  --foreground: oklch(0.2 0.02 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 260);
-  --primary: oklch(0.55 0.2 255); /* Blue 600 */
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 240); /* Slate 100 */
-  --secondary-foreground: oklch(0.25 0.03 260);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.5 0.02 260);
-  --accent: oklch(0.96 0.01 240); /* Slate 100 */
-  --accent-foreground: oklch(0.25 0.03 260);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 240);
-  --input: oklch(0.91 0.01 240);
-  --ring: oklch(0.55 0.2 255);
-  --chart-1: oklch(0.55 0.2 255);
-  --chart-2: oklch(0.58 0.16 160);
-  --chart-3: oklch(0.45 0.12 250);
-  --chart-4: oklch(0.65 0.14 180);
-  --chart-5: oklch(0.35 0.08 260);
-  --radius: 0.625rem;
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.2 0.02 260);
-  --sidebar-primary: oklch(0.55 0.2 255);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.01 240);
-  --sidebar-accent-foreground: oklch(0.25 0.03 260);
-  --sidebar-border: oklch(0.91 0.01 240);
-  --sidebar-ring: oklch(0.55 0.2 255);
+  /* Palet Lembar Peta × Mahakam: kertas peta, tinta sungai, sedimen untuk "terisi" */
+  --paper: #EBF0EC;    /* latar halaman */
+  --sheet: #F7FAF7;    /* lembar/panel */
+  --ink: #142624;      /* teks & garis utama */
+  --ink-2: #4E625E;    /* teks sekunder */
+  --rule: #14262433;   /* garis tipis */
+  --qty: #13605B;      /* jumlah/kuantitas (grafik layer), tautan, aksi utama */
+  --qty-2: #6FA39C;
+  --qty-3: #B9D3CE;
+  --done: #A97A2F;     /* satu-satunya warna untuk status "terisi" */
+  --contour: #7A4E35;  /* tanda koordinat, nomor urut */
+  --bound: #B04A2F;    /* "belum terisi", galat */
+  --link: #13605B;
+  --grid: #13605B12;   /* graticule latar */
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--qty);
+  --primary-foreground: #F7FAF7;
+  --secondary: #DFE7E2;
+  --secondary-foreground: var(--ink);
+  --muted: #DFE7E2;
+  --muted-foreground: var(--ink-2);
+  --accent: #DFE7E2;
+  --accent-foreground: var(--ink);
+  --destructive: var(--bound);
+  --border: #C5D1CB;
+  --input: #C5D1CB;
+  --ring: var(--qty);
+  --chart-1: var(--qty);
+  --chart-2: var(--qty-2);
+  --chart-3: var(--qty-3);
+  --chart-4: var(--done);
+  --chart-5: var(--contour);
+  --radius: 0.125rem;
+  --sidebar: var(--sheet);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--qty);
+  --sidebar-primary-foreground: #F7FAF7;
+  --sidebar-accent: #DFE7E2;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: #C5D1CB;
+  --sidebar-ring: var(--qty);
 }
 
 .dark {
-  --background: #020617; /* deep slate 950 */
-  --foreground: #f8fafc; /* slate 50 */
-  --card: #0f172a; /* slate 900 */
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #3b82f6; /* blue 500 */
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b; /* slate 800 */
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8; /* slate 400 */
-  --accent: #1e293b; /* slate 800 */
-  --accent-foreground: #f8fafc; /* slate 50 */
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #6366f1;
-  --chart-4: #06b6d4;
-  --chart-5: #64748b;
-  --sidebar: #0f172a;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
+  --paper: #0B1F1E;
+  --sheet: #102927;
+  --ink: #E6EFEA;
+  --ink-2: #9FB7B0;
+  --rule: #E6EFEA2E;
+  --qty: #5FB3A8;
+  --qty-2: #3B7E76;
+  --qty-3: #24504B;
+  --done: #D9B87E;
+  --contour: #C79A7F;
+  --bound: #E58A6E;
+  --link: #7CC9BE;
+  --grid: #5FB3A812;
+
+  --primary-foreground: #0B1F1E;
+  --secondary: #173733;
+  --muted: #173733;
+  --accent: #173733;
+  --border: #24433F;
+  --input: #24433F;
+  --sidebar-primary-foreground: #0B1F1E;
+  --sidebar-accent: #173733;
+  --sidebar-border: #24433F;
 }
 
 @layer base {
@@ -127,4 +148,36 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Lebar huruf rapat (sumbu wdth Archivo) untuk judul dan angka besar */
+@utility font-cond {
+  font-stretch: 72%;
+}
+
+/* Graticule: grid tipis seperti lembar peta */
+@utility bg-graticule {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Animasi "mengisi": bentuk kosong sudah tampil, lalu terisi dari kiri ke kanan */
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+}
+@keyframes unit-fill {
+  from { background-color: var(--sheet); border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+}
+@utility animate-bar-grow {
+  transform-origin: left;
+  animation: bar-grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both 0.15s;
+}
+@utility animate-unit-fill {
+  animation: unit-fill 0.25s ease-out both;
+  animation-delay: calc(var(--i, 0) * 4ms + 0.15s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-bar-grow, .animate-unit-fill { animation: none; }
 }

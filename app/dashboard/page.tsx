@@ -4,9 +4,9 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
-import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { PageHeader, StatStrip, StatusLabel, Swatch, controlClass } from "@/components/lembar-peta";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,16 +25,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Database,
   RefreshCw,
-  Building2,
   Search,
   ExternalLink,
-  Layers,
-  CheckCircle2,
-  XCircle,
-  FileSpreadsheet,
-  Calendar,
   MoreHorizontal,
   FileCheck2,
   GitMerge,
@@ -119,7 +112,7 @@ function FilterChip({
 }) {
   return (
     <span
-      className={`inline-flex max-w-full items-start gap-1 rounded-2xl py-1 pl-2.5 pr-1 text-[11px] font-medium leading-snug ${className ?? ""}`}
+      className={`inline-flex max-w-full items-start gap-1 py-0.5 pl-2 pr-0.5 text-[13px] leading-snug ${className ?? ""}`}
     >
       <span className="min-w-0 break-words">
         {label}: {value}
@@ -129,7 +122,7 @@ function FilterChip({
         onClick={onRemove}
         aria-label={`Hapus filter ${label}`}
         title={`Hapus filter ${label}`}
-        className="shrink-0 rounded-full p-0.5 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+        className="shrink-0 p-0.5 text-ink-2 hover:text-ink hover:bg-ink/10 cursor-pointer"
       >
         <X className="h-3 w-3" />
       </button>
@@ -470,191 +463,88 @@ function DashboardContent() {
     filteredData.length > 0 ? Math.round((totalFilled / filteredData.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans transition-colors">
+    <div className="min-h-screen flex flex-col">
       <Navbar currentPage="dashboard" />
 
-      <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
-        {/* Top Header & Primary Action Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-          <div>
-            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
-              JIGD Kaltim
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-              Dashboard Monitoring Keterisian JIGD
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-              Kelola daftar data, verifikasi integrasi layer Geoportal, dan petakan standar KUGI.
-            </p>
-          </div>
-
-          {/* Action Buttons: Tambah Data, CSV Upload, Sync GeoNode */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSyncGeoNode}
-              disabled={isSyncing}
-              className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-2xs text-xs font-medium"
-            >
-              <RefreshCw className={`h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400 ${isSyncing ? "animate-spin" : ""}`} />
-              {isSyncing ? "Sinkronisasi..." : "Sinkronisasi GeoNode"}
-            </Button>
-
-            <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} />
-
-            <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
-
-            <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
-          </div>
-        </div>
+      <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
+        <PageHeader
+          title="Verifikasi daftar data"
+          description="Cocokkan setiap daftar data dengan layer Geoportal dan unsur KUGI-nya. Urutan mengikuti nomor pada sheet Daftar Data."
+          actions={
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncGeoNode}
+                disabled={isSyncing}
+                className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+                {isSyncing ? "Menyinkronkan…" : "Sinkronisasi GeoNode"}
+              </Button>
+              <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} />
+              <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
+              <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
+            </>
+          }
+        />
 
         <DbErrorBanner message={loadError} />
 
         {/* Sync Status Banner */}
         {syncStatus && (
-          <div className="mb-6 p-3.5 bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 text-blue-900 dark:text-blue-200 rounded-xl text-xs font-medium flex items-center justify-between animate-in fade-in duration-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span>{syncStatus}</span>
-            </div>
-            <button onClick={() => setSyncStatus(null)} className="text-blue-800 dark:text-blue-300 hover:text-blue-950 dark:hover:text-white font-bold cursor-pointer">
+          <div role="status" className="mb-6 flex items-center justify-between gap-3 border border-qty border-l-4 bg-sheet p-3.5 text-sm text-ink animate-in fade-in duration-200">
+            <span>{syncStatus}</span>
+            <button onClick={() => setSyncStatus(null)} aria-label="Tutup pesan" className="px-1 text-lg leading-none text-ink-2 hover:text-ink cursor-pointer">
               ×
             </button>
           </div>
         )}
 
-        {/* 1. OVERVIEW SECTION (4 STAT CARDS) */}
-        <section className="mb-8">
-          <div className="flex items-center mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              Overview Indikator Keterisian
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Stat Card 1: Total Dataset JIGD */}
-            <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md transition-all">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Total Dataset JIGD
-                </CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Database className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {isLoading ? <Skeleton className="h-8 w-16" /> : totalDatasetsGeoportal}
-                </div>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                  Layer aktif pada cache Geoportal
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Stat Card 2: Daftar Data (Tahun Terakhir) */}
-            <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md transition-all">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Daftar Data ({latestYear})
-                </CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center">
-                  <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {isLoading ? <Skeleton className="h-8 w-16" /> : latestYearData.length}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                  Target data spasial tahun {latestYear}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Stat Card 3: Data Terisi */}
-            <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md transition-all">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Data Terisi ({latestYear})
-                </CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <CheckCircle2 className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {isLoading ? <Skeleton className="h-8 w-16" /> : latestYearFilled}
-                </div>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                  {latestYearFilledPercent}% dari target tahun {latestYear}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Stat Card 4: Persentase Pemetaan KUGI */}
-            <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md transition-all">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Persentase Pemetaan KUGI
-                </CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {isLoading ? <Skeleton className="h-8 w-16" /> : `${latestYearKugiPercent}%`}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                  {latestYearKugiStandardized} dari {latestYearData.length} data berstandar KUGI
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+        <StatStrip
+          loading={isLoading}
+          items={[
+            { label: `Daftar data ${latestYear}`, value: latestYearData.length, note: "Target tahun terbaru" },
+            { label: `Terisi ${latestYear}`, value: latestYearFilled, note: `${latestYearFilledPercent}% sudah punya layer` },
+            { label: "Ber-KUGI", value: `${latestYearKugiPercent}%`, note: `${latestYearKugiStandardized} dari ${latestYearData.length} daftar data` },
+            { label: "Layer di Geoportal", value: totalDatasetsGeoportal, note: "Dari cache GeoNode" },
+          ]}
+        />
 
         {/* 2. DATA TABLE SECTION */}
-        <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        <section className="border-y-2 border-ink bg-sheet">
           {/* Table Header & Multi-Filter Controls */}
-          <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+          <div className="px-4 py-4 sm:px-5 border-b border-ink flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                Daftar Data Geospasial
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Monitoring status keterisian, standar KUGI, dan verifikasi layer per Organisasi Perangkat Daerah
-              </p>
+              <h2 className="font-cond text-[21px] font-bold">Daftar data</h2>
+              <p className="text-sm text-ink-2 mt-0.5">Cari menurut nama data, OPD, KUGI, atau tag bidang.</p>
             </div>
 
             {/* Controls: Search, Filter OPD, Filter Tahun */}
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Search input */}
               <div className="relative min-w-[220px] flex-1 sm:flex-initial">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-2" />
                 <Input
                   type="text"
                   placeholder="Cari data, OPD, atau KUGI..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
+                  className="pl-9 h-9 text-sm bg-sheet border-ink/40 focus-visible:ring-qty/30"
                 />
               </div>
 
               {/* Filter OPD Dropdown */}
               <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
-                <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <select
                   id="filter-opd"
+                  aria-label="Perangkat daerah"
                   value={selectedOpd}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
                     setParams({ opd: selectedValue === "all" ? null : selectedValue, page: null });
                   }}
-                  className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer truncate text-left max-w-[200px]"
+                  className={cn(controlClass, "pr-8 cursor-pointer truncate text-left max-w-[200px]")}
                 >
                   <option value="all">Semua Perangkat Daerah</option>
                   {activeGeoportalOpds.map((opd) => (
@@ -667,12 +557,12 @@ function DashboardContent() {
 
               {/* Filter Tahun Dropdown */}
               <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
-                <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <select
                   id="filter-tahun"
+                  aria-label="Tahun"
                   value={selectedYear}
                   onChange={(e) => setParams({ tahun: e.target.value === "all" ? null : e.target.value, page: null })}
-                  className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                  className={cn(controlClass, "pr-8 cursor-pointer")}
                 >
                   <option value="all">Semua Tahun</option>
                   {availableYears.map((yr) => (
@@ -686,19 +576,11 @@ function DashboardContent() {
           </div>
 
           {/* Table Summary Quick Bar */}
-          <div className="px-5 py-2.5 bg-slate-50/70 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-600 dark:text-slate-400 gap-2">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>
-                Total Ditemukan: <strong className="text-slate-900 dark:text-slate-100">{filteredData.length}</strong> data
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                Terisi: {totalFilled} ({percentageFilled}%)
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <span className="text-rose-600 dark:text-rose-400 font-medium">
-                Belum Terisi: {filteredData.length - totalFilled}
-              </span>
+          <div className="px-4 sm:px-5 py-2.5 border-b border-rule flex flex-wrap items-center justify-between text-sm text-ink-2 gap-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums">
+              <span className="text-ink">{filteredData.length} daftar data</span>
+              <span className="inline-flex items-center gap-1.5"><Swatch filled />{totalFilled} terisi ({percentageFilled}%)</span>
+              <span className="inline-flex items-center gap-1.5"><Swatch />{filteredData.length - totalFilled} belum terisi</span>
             </div>
 
             {/* Chip filter aktif: teks boleh turun baris (tidak terpotong), klik × untuk menghapus filter */}
@@ -708,7 +590,7 @@ function DashboardContent() {
                   label="OPD"
                   value={opdList.find(o => o.id === selectedOpd || o.username_jigd?.toLowerCase() === selectedOpd.toLowerCase())?.nama_opd || "Terfilter"}
                   onRemove={() => setParams({ opd: null, page: null })}
-                  className="bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300"
+                  className="border border-qty/60 text-ink"
                 />
               )}
               {selectedYear !== "all" && (
@@ -716,7 +598,7 @@ function DashboardContent() {
                   label="Tahun"
                   value={selectedYear}
                   onRemove={() => setParams({ tahun: null, page: null })}
-                  className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                  className="border border-ink/40 text-ink"
                 />
               )}
             </div>
@@ -727,14 +609,11 @@ function DashboardContent() {
             <SkeletonRows rows={8} />
           ) : filteredData.length === 0 ? (
             <div className="p-16 text-center space-y-4">
-              <div className="h-14 w-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto">
-                <FileSpreadsheet className="h-7 w-7" />
-              </div>
               <div className="space-y-1">
-                <h4 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                  {dataList.length === 0 ? "Belum Ada Data di Tabel daftar_data" : "Tidak Ada Data yang Cocok"}
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                <h3 className="font-cond text-xl font-bold">
+                  {dataList.length === 0 ? "Belum ada daftar data" : "Tidak ada daftar data yang cocok"}
+                </h3>
+                <p className="text-sm text-ink-2 max-w-md mx-auto">
                   {dataList.length === 0
                     ? "Anda dapat mengunggah file CSV daftar data, menambahkan data manual satu per satu, atau memuat data contoh untuk simulasi."
                     : "Coba ubah kata kunci pencarian, atau bersihkan filter OPD dan Tahun."}
@@ -749,9 +628,9 @@ function DashboardContent() {
                     variant="outline"
                     size="sm"
                     onClick={handleSeedSampleData}
-                    className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    className="border-ink/30 text-ink hover:bg-ink/5"
                   >
-                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-500" />
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-contour" />
                     Muat 6 Data Contoh
                   </Button>
                 </div>
@@ -761,26 +640,26 @@ function DashboardContent() {
             /* The Complete Data Table with 5 Exact Columns */
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/80 dark:bg-slate-900/80">
-                  <TableRow className="border-b border-slate-200 dark:border-slate-800 hover:bg-transparent">
+                <TableHeader>
+                  <TableRow className="border-b border-ink hover:bg-transparent">
                     {/* Column 1: Perangkat Daerah */}
-                    <TableHead className="hidden lg:table-cell font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pl-5 min-w-[250px] whitespace-normal">
-                      Perangkat Daerah
+                    <TableHead className="hidden lg:table-cell font-cond font-semibold text-sm py-3.5 pl-5 min-w-[250px] whitespace-normal">
+                      Perangkat daerah
                     </TableHead>
                     {/* Column 2: Daftar Data Geospasial */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pl-4 lg:pl-2 md:min-w-[250px] whitespace-normal">
-                      Daftar Data Geospasial
+                    <TableHead className="font-cond font-semibold text-sm py-3.5 pl-4 lg:pl-2 md:min-w-[250px] whitespace-normal">
+                      Nama data dan layer
                     </TableHead>
                     {/* Column 3: Standar KUGI */}
-                    <TableHead className="hidden md:table-cell font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 min-w-[180px] whitespace-normal">
-                      Standar KUGI
+                    <TableHead className="hidden md:table-cell font-cond font-semibold text-sm py-3.5 min-w-[180px] whitespace-normal">
+                      KUGI
                     </TableHead>
                     {/* Column 4: Status */}
-                    <TableHead className="hidden md:table-cell font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 text-center min-w-[120px]">
+                    <TableHead className="hidden md:table-cell font-cond font-semibold text-sm py-3.5 min-w-[130px]">
                       Status
                     </TableHead>
                     {/* Column 5: Aksi */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pr-4 sm:pr-5 text-right md:min-w-[100px]">
+                    <TableHead className="font-cond font-semibold text-sm py-3.5 pr-4 sm:pr-5 text-right md:min-w-[100px]">
                       Aksi
                     </TableHead>
                   </TableRow>
@@ -798,70 +677,52 @@ function DashboardContent() {
                     return (
                       <TableRow
                         key={item.id}
-                        className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                        className="border-b border-rule hover:bg-qty/5 transition-colors"
                       >
                         {/* 1. Perangkat Daerah: whitespace-normal break-words min-w-[250px] */}
                         <TableCell className="hidden lg:table-cell py-3.5 pl-5 align-top whitespace-normal break-words min-w-[250px]">
-                          <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
-                            {item.master_opd?.nama_opd || "OPD Belum Terhubung"}
+                          <div className="text-sm text-ink">
+                            {item.master_opd?.nama_opd || "OPD belum terhubung"}
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            {item.master_opd?.username_jigd && (
-                              <Badge variant="outline" className="text-[10px] text-blue-700 bg-blue-50/80 border-blue-200 dark:text-blue-400 dark:bg-blue-950/50 dark:border-blue-800 py-0 font-mono">
-                                @{item.master_opd.username_jigd}
-                              </Badge>
-                            )}
-                            {(item.tahun_berlaku || []).map((th) => (
-                              <span key={th} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-medium px-1.5 py-0.5 rounded">
-                                {th}
-                              </span>
-                            ))}
+                          <div className="mt-0.5 text-[13px] text-ink-2 tabular-nums">
+                            {[item.master_opd?.username_jigd && `@${item.master_opd.username_jigd}`, (item.tahun_berlaku || []).join(", ")]
+                              .filter(Boolean)
+                              .join(", ")}
                           </div>
                         </TableCell>
 
                         {/* 2. Daftar Data Geospasial: whitespace-normal break-words min-w-[250px] */}
                         <TableCell className="py-3.5 pl-4 lg:pl-2 align-top whitespace-normal break-words md:min-w-[250px]">
                           {/* OPD & tahun untuk layar < lg (kolom Perangkat Daerah disembunyikan) */}
-                          <div className="lg:hidden mb-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              {item.master_opd?.nama_opd || "OPD Belum Terhubung"}
-                            </span>
-                            {(item.tahun_berlaku || []).map((th) => (
-                              <span key={th} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-medium px-1.5 py-0.5 rounded">
-                                {th}
-                              </span>
-                            ))}
+                          <div className="lg:hidden mb-1 text-[13px] text-ink-2">
+                            {item.master_opd?.nama_opd || "OPD belum terhubung"}
+                            {(item.tahun_berlaku || []).length > 0 && `, ${(item.tahun_berlaku || []).join(", ")}`}
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-relaxed">
+                            <span className="text-sm font-semibold text-ink leading-snug">
                               {item.nama_data}
                             </span>
                             {item.tag_bidang && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] uppercase font-semibold tracking-wider"
-                              >
-                                {item.tag_bidang}
-                              </Badge>
+                              <span className="border border-ink/30 px-1.5 text-xs text-ink-2">{item.tag_bidang}</span>
                             )}
                           </div>
                           {primaryLayer ? (
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 break-all">
+                              <span className="text-[13px] text-ink-2 break-all">
                                 {primaryLayer.name} ({primaryLayer.geometry_type || "Layer"})
                               </span>
                               <a
                                 href={datasetUrl!}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline"
+                                className="inline-flex items-center text-qty hover:underline"
                                 title="Buka layer di Geoportal"
                               >
                                 <ExternalLink className="h-3 w-3" />
                               </a>
                             </div>
                           ) : (
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">
+                            <div className="text-[13px] text-ink-2 italic mt-0.5">
                               Belum ada layer terpaut
                             </div>
                           )}
@@ -869,22 +730,22 @@ function DashboardContent() {
                           {/* Supplementary Layers (Layer Pelengkap) collapsible */}
                           {pelengkapLayers.length > 0 && (
                             <details className="group mt-2 text-xs">
-                              <summary className="cursor-pointer text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 select-none list-none flex items-center gap-1">
-                                <span className="text-[9px] transition-transform duration-150 group-open:rotate-90 text-slate-400">▶</span>
-                                <span>+ {pelengkapLayers.length} Layer Pelengkap</span>
+                              <summary className="cursor-pointer text-[13px] text-link hover:underline select-none list-none flex items-center gap-1">
+                                <span className="text-[9px] transition-transform duration-150 group-open:rotate-90 text-ink-2">▶</span>
+                                <span>{pelengkapLayers.length} layer pelengkap</span>
                               </summary>
-                              <ul className="mt-1.5 pl-3 border-l-2 border-slate-200 dark:border-slate-800 space-y-1">
+                              <ul className="mt-1.5 pl-3 border-l-2 border-rule space-y-1">
                                 {pelengkapLayers.map((pLayer) => (
-                                  <li key={pLayer.uuid} className="text-[11px] text-slate-600 dark:text-slate-400">
+                                  <li key={pLayer.uuid} className="text-[13px] text-ink-2">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-medium text-slate-700 dark:text-slate-300">{pLayer.title}</span>
-                                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">({pLayer.name})</span>
+                                      <span className="text-ink">{pLayer.title}</span>
+                                      <span className="text-ink-2">({pLayer.name})</span>
                                       {pLayer.id_dataset && (
                                         <a
                                           href={`https://jigd.kaltimprov.go.id/catalogue/#/dataset/${pLayer.id_dataset}`}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center"
+                                          className="text-qty hover:underline inline-flex items-center"
                                           title="Buka di Geoportal"
                                         >
                                           <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
@@ -899,24 +760,14 @@ function DashboardContent() {
 
                           {/* KUGI & status untuk layar < md (kolomnya disembunyikan) */}
                           <div className="md:hidden mt-2.5 flex flex-wrap items-center gap-2">
-                            {item.status_keterisian ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Terisi
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                                <XCircle className="h-3 w-3" />
-                                Belum Terisi
-                              </span>
-                            )}
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                            <span className="text-[13px]"><StatusLabel filled={item.status_keterisian} /></span>
+                            <span className="text-[13px] text-ink-2">
                               KUGI:{" "}
                               {item.master_kugi?.nama_unsur || item.kugi_nama_unsur ? (
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                <span className="text-ink">
                                   {item.master_kugi?.nama_unsur || item.kugi_nama_unsur}
                                   {item.master_kugi?.kode_unsur && (
-                                    <span className="font-mono font-normal"> ({item.master_kugi.kode_unsur})</span>
+                                    <span className="font-normal"> ({item.master_kugi.kode_unsur})</span>
                                   )}
                                 </span>
                               ) : (
@@ -927,45 +778,22 @@ function DashboardContent() {
                         </TableCell>
 
                         {/* 3. Standar KUGI: whitespace-normal break-words */}
-                        <TableCell className="hidden md:table-cell py-3.5 align-top text-xs text-slate-700 dark:text-slate-300 whitespace-normal break-words min-w-[180px]">
-                          {item.master_kugi?.nama_unsur ? (
+                        <TableCell className="hidden md:table-cell py-3.5 align-top text-sm text-ink whitespace-normal break-words min-w-[180px]">
+                          {item.master_kugi?.nama_unsur || item.kugi_nama_unsur ? (
                             <div>
-                              <Badge variant="secondary" className="font-semibold text-xs leading-normal py-0.5 px-2">
-                                {item.master_kugi.nama_unsur}
-                              </Badge>
-                              <span className="font-mono text-xs text-muted-foreground mt-1 block">
-                                {item.master_kugi.kode_unsur}
-                              </span>
-                            </div>
-                          ) : item.kugi_nama_unsur ? (
-                            <div>
-                              <Badge variant="secondary" className="font-semibold text-xs leading-normal py-0.5 px-2">
-                                {item.kugi_nama_unsur}
-                              </Badge>
-                              <span className="font-mono text-xs text-muted-foreground mt-1 block">
-                                (Kode belum ditentukan)
-                              </span>
+                              <div className="break-all">{item.master_kugi?.nama_unsur || item.kugi_nama_unsur}</div>
+                              <div className="mt-0.5 text-[13px] text-ink-2">
+                                {item.master_kugi?.kode_unsur || "Kode belum ditentukan"}
+                              </div>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 italic">
-                              Belum dipetakan
-                            </span>
+                            <span className="text-[13px] text-ink-2 italic">Belum dipetakan</span>
                           )}
                         </TableCell>
 
                         {/* 4. Status (Red / Green Badge) */}
-                        <TableCell className="hidden md:table-cell py-3.5 align-top text-center">
-                          {item.status_keterisian ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                              Terisi
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                              <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-                              Belum Terisi
-                            </span>
-                          )}
+                        <TableCell className="hidden md:table-cell py-3.5 align-top text-sm">
+                          <StatusLabel filled={item.status_keterisian} />
                         </TableCell>
 
                         {/* 5. Aksi: Action Menu (DropdownMenu with "Verifikasi Data" and "Merge dengan Data Lain") */}
@@ -977,39 +805,39 @@ function DashboardContent() {
                                   variant="outline"
                                   size="sm"
                                   aria-label={`Aksi untuk ${item.nama_data}`}
-                                  className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                                  className="h-8 px-2.5 text-sm border-ink/40 bg-transparent text-ink hover:bg-ink/5"
                                 >
                                   <span className="hidden sm:inline">Aksi</span>
-                                  <MoreHorizontal className="h-3.5 w-3.5 sm:ml-1 text-slate-500 dark:text-slate-400" />
+                                  <MoreHorizontal className="h-3.5 w-3.5 sm:ml-1 text-ink-2" />
                                 </Button>
                               }
                             />
-                            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                            <DropdownMenuContent align="end" className="w-52">
                               {/* Option 1: Verifikasi Data */}
                               <DropdownMenuItem
                                 onClick={() => setEditingRecord(item)}
-                                className="cursor-pointer text-xs focus:bg-slate-100 dark:focus:bg-slate-800"
+                                className="cursor-pointer text-sm"
                               >
-                                <FileCheck2 className="h-3.5 w-3.5 mr-2 text-blue-600 dark:text-blue-400" />
+                                <FileCheck2 className="h-3.5 w-3.5 mr-2 text-qty" />
                                 <span>Verifikasi Data</span>
                               </DropdownMenuItem>
 
                               {/* Option 2: Merge dengan Data Lain */}
                               <DropdownMenuItem
                                 onClick={() => setMergingRecord(item)}
-                                className="cursor-pointer text-xs focus:bg-slate-100 dark:focus:bg-slate-800"
+                                className="cursor-pointer text-sm"
                               >
-                                <GitMerge className="h-3.5 w-3.5 mr-2 text-cyan-600 dark:text-cyan-400" />
+                                <GitMerge className="h-3.5 w-3.5 mr-2 text-qty" />
                                 <span>Merge dengan Data Lain</span>
                               </DropdownMenuItem>
 
-                              <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                              <DropdownMenuSeparator className="bg-ink/5" />
 
                               {/* Delete Option */}
                               <DropdownMenuItem
                                 variant="destructive"
                                 onClick={() => handleDeleteRecord(item.id, item.nama_data)}
-                                className="cursor-pointer text-xs text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                                className="cursor-pointer text-sm"
                               >
                                 <Trash2 className="h-3.5 w-3.5 mr-2" />
                                 <span>Hapus Data</span>
@@ -1027,24 +855,25 @@ function DashboardContent() {
 
           {/* Pagination Controls & Rows Per Page Selector */}
           {!isLoading && filteredData.length > 0 && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400">
+            <div className="px-4 py-3 sm:px-5 border-t border-ink flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-ink-2">
               {/* Row count range */}
-              <div>
-                Menampilkan <strong className="text-slate-900 dark:text-slate-100">{startIndex}</strong> - <strong className="text-slate-900 dark:text-slate-100">{endIndex}</strong> dari <strong className="text-slate-900 dark:text-slate-100">{filteredData.length}</strong> data
+              <div className="tabular-nums">
+                Baris {startIndex}–{endIndex} dari {filteredData.length} daftar data
               </div>
 
               {/* Pagination controls & Page Size */}
               <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                 {/* Page Size Selector */}
                 <div className="flex items-center gap-1.5">
-                  <span>Tampilkan:</span>
+                  <span>Tampilkan</span>
                   <select
+                    aria-label="Baris per halaman"
                     value={pageSize}
                     onChange={(e) => {
                       setPageSize(Number(e.target.value));
                       goToPage(1);
                     }}
-                    className="h-8 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer"
+                    className={cn(controlClass, "h-8 px-2 cursor-pointer")}
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -1061,13 +890,13 @@ function DashboardContent() {
                     size="sm"
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-40"
+                    className="h-8 px-2.5 text-sm border-ink/40 bg-transparent disabled:opacity-40"
                   >
                     <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                     Sebelumnya
                   </Button>
 
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-1">
+                  <span className="text-ink px-1 tabular-nums">
                     {currentPage} / {totalPages}
                   </span>
 
@@ -1076,7 +905,7 @@ function DashboardContent() {
                     size="sm"
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-40"
+                    className="h-8 px-2.5 text-sm border-ink/40 bg-transparent disabled:opacity-40"
                   >
                     Selanjutnya
                     <ChevronRight className="h-3.5 w-3.5 ml-1" />
@@ -1086,18 +915,11 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Footer note */}
-          <div className="p-4 bg-slate-50/50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span>
-              Keterangan: Integrasi layer diverifikasi langsung dengan database cache Geoportal Provinsi Kalimantan Timur.
-            </span>
+          <div className="px-4 py-3 sm:px-5 border-t border-rule text-[13px] text-ink-2 flex flex-col sm:flex-row items-center justify-between gap-1">
+            <span>Layer dicocokkan dengan cache Geoportal JIGD. Perbarui lewat Sinkronisasi GeoNode.</span>
             {!isLoading && (
-              <span
-                className={`font-mono text-[11px] font-medium ${
-                  loadError ? "text-rose-600 dark:text-rose-400" : "text-blue-600 dark:text-blue-400"
-                }`}
-              >
-                Supabase Status: {loadError ? "Tidak Terhubung" : "Terhubung"}
+              <span className={loadError ? "text-bound" : undefined}>
+                Database {loadError ? "tidak terhubung" : "terhubung"}
               </span>
             )}
           </div>
@@ -1135,8 +957,8 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="min-h-screen flex items-center justify-center bg-paper">
+          <Loader2 className="h-8 w-8 animate-spin text-qty" />
         </div>
       }
     >

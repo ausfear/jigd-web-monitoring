@@ -4,8 +4,6 @@ import React, { useState, useMemo } from "react";
 import {
   FileCheck2,
   Layers,
-  CheckCircle2,
-  XCircle,
   Loader2,
   Building2,
   Calendar,
@@ -15,7 +13,7 @@ import {
   AlertCircle,
   Check,
   ChevronsUpDown,
-  Plus
+  Plus,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DaftarData, CacheLayerGeoportal, MasterKugi } from "@/types/database";
 import { supabase } from "@/lib/supabase";
+import { StatusLabel } from "@/components/lembar-peta";
 
 interface VerificationEditDialogProps {
   record: DaftarData | null;
@@ -271,77 +270,56 @@ export function VerificationEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border border-border dark:border-slate-800 text-slate-900 dark:text-slate-100">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink-2">
+            <Building2 className="h-3.5 w-3.5 text-qty" />
             <span>{record.master_opd?.nama_opd || "Perangkat Daerah"}</span>
             {opdUsername ? (
-              <Badge variant="outline" className="border-border bg-blue-50 text-blue-700 dark:border-slate-800 dark:bg-blue-950/60 dark:text-blue-300 text-[10px] py-0 font-mono">
+              <Badge variant="outline" className="border-border bg-qty/10 text-qty text-xs py-0">
                 @{opdUsername}
               </Badge>
             ) : (
-              <Badge variant="destructive" className="text-[10px] py-0">
+              <Badge variant="destructive" className="text-xs py-0">
                 Belum ada username_jigd
               </Badge>
             )}
           </div>
-          <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <FileCheck2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <DialogTitle className="text-lg font-bold text-ink flex items-center gap-2">
+            <FileCheck2 className="h-5 w-5 text-qty" />
             Verifikasi &amp; Integrasi Data Geospasial
           </DialogTitle>
-          <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+          <DialogDescription className="text-sm text-ink-2">
             Tetapkan standar KUGI cascading dan hubungkan layer Geoportal milik OPD ini.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {errorMessage && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 rounded-lg text-xs flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <div className="p-3 bg-bound/10 border border-bound/40 text-bound rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-bound" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {/* 1. Status Keterisian (Strict Read-Only Derived State: Layer Utama Selected => Terisi, else Belum Terisi) */}
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-900/80 border border-border dark:border-slate-800 rounded-xl flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 border-y border-rule py-3">
             <div>
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Status Keterisian di Geoportal</div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Otomatis: status <strong>Terisi</strong> jika Layer Utama dipilih, <strong>Belum Terisi</strong> jika belum dipilih.
-              </p>
+              <div className="text-sm font-semibold">Status keterisian</div>
+              <p className="text-[13px] text-ink-2">Otomatis terisi bila Layer Utama dipilih.</p>
             </div>
-
-            <div
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold select-none shadow-xs ${
-                statusKeterisian
-                  ? "bg-emerald-600 text-white shadow-emerald-600/20"
-                  : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800"
-              }`}
-            >
-              {statusKeterisian ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Terisi
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 text-rose-600" />
-                  Belum Terisi
-                </>
-              )}
-            </div>
+            <span className="text-sm"><StatusLabel filled={statusKeterisian} /></span>
           </div>
 
           {/* 2. Nama Data Geospasial */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            <label className="text-sm font-bold text-ink">
               Nama Data Geospasial
             </label>
             <Input
               value={namaData}
               onChange={(e) => setNamaData(e.target.value)}
-              className="text-xs font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
+              className="text-sm font-medium bg-sheet border-rule focus-visible:ring-qty/30"
               placeholder="Contoh: Peta Batas Administrasi..."
             />
           </div>
@@ -349,15 +327,15 @@ export function VerificationEditDialog({
           {/* Tag / Bidang (Opsional) - Creatable Combobox */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <Tag className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <label className="text-sm font-bold text-ink flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-qty" />
                 Tag / Bidang (Opsional)
               </label>
               {tagBidang && (
                 <button
                   type="button"
                   onClick={() => setTagBidang("")}
-                  className="text-[11px] text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-0.5 cursor-pointer transition-colors"
+                  className="text-[13px] text-ink-2 hover:text-bound flex items-center gap-0.5 cursor-pointer transition-colors"
                 >
                   <X className="h-3 w-3" /> Hapus Tag
                 </button>
@@ -370,7 +348,7 @@ export function VerificationEditDialog({
                     variant="outline"
                     role="combobox"
                     aria-expanded={openTagBidang}
-                    className="w-full justify-between text-left font-medium h-10 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs"
+                    className="w-full justify-between text-left font-medium h-10 border-ink/30 bg-sheet text-ink text-sm"
                   >
                     <span className="truncate">
                       {tagBidang || "-- Pilih atau Buat Tag / Bidang --"}
@@ -380,19 +358,19 @@ export function VerificationEditDialog({
                 }
               />
               <PopoverContent
-                className="w-[--anchor-width] min-w-[340px] p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                className="w-[--anchor-width] min-w-[340px] p-0 bg-sheet border-rule"
                 align="start"
               >
                 <Command>
                   <CommandInput
                     placeholder="Ketik untuk mencari atau membuat tag..."
-                    className="text-xs"
+                    className="text-sm"
                     value={tagSearch}
                     onValueChange={setTagSearch}
                   />
                   <CommandList className="max-h-[220px] overflow-y-auto">
-                    <CommandEmpty className="p-3 text-xs text-center">
-                      <div className="text-slate-500 mb-2">Tidak ada tag yang cocok.</div>
+                    <CommandEmpty className="p-3 text-sm text-center">
+                      <div className="text-ink-2 mb-2">Tidak ada tag yang cocok.</div>
                       {tagSearch.trim() && (
                         <button
                           type="button"
@@ -401,7 +379,7 @@ export function VerificationEditDialog({
                             setTagSearch("");
                             setOpenTagBidang(false);
                           }}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-medium text-xs cursor-pointer transition-colors"
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-qty/10 hover:bg-qty/10 text-qty font-medium text-sm cursor-pointer transition-colors"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           <span>Buat tag &quot;{tagSearch.trim()}&quot;</span>
@@ -418,17 +396,17 @@ export function VerificationEditDialog({
                             setTagSearch("");
                             setOpenTagBidang(false);
                           }}
-                          className="text-xs cursor-pointer py-1.5 focus:bg-slate-100 dark:focus:bg-slate-800"
+                          className="text-sm cursor-pointer py-1.5 focus:bg-ink/5"
                         >
                           <Check
                             className={cn(
-                              "mr-2 h-3.5 w-3.5 text-blue-600 dark:text-blue-400",
+                              "mr-2 h-3.5 w-3.5 text-qty",
                               tagBidang.toLowerCase() === tag.toLowerCase()
                                 ? "opacity-100"
                                 : "opacity-0"
                             )}
                           />
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          <span className="font-semibold text-ink">
                             {tag}
                           </span>
                         </CommandItem>
@@ -445,7 +423,7 @@ export function VerificationEditDialog({
                               setTagSearch("");
                               setOpenTagBidang(false);
                             }}
-                            className="text-xs cursor-pointer py-2 text-blue-600 dark:text-blue-400 font-medium border-t border-slate-100 dark:border-slate-800 hover:bg-blue-50/50 dark:hover:bg-blue-950/40"
+                            className="text-sm cursor-pointer py-2 text-qty font-medium border-t border-rule hover:bg-qty/10"
                           >
                             <Plus className="mr-2 h-3.5 w-3.5" />
                             <span>Buat tag &quot;{tagSearch.trim()}&quot;</span>
@@ -460,8 +438,8 @@ export function VerificationEditDialog({
 
           {/* 3. Tahun Berlaku Management: mengikuti Pengaturan Tahun */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            <label className="text-sm font-bold text-ink flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-qty" />
               Tahun Berlaku:
             </label>
             <div className="flex flex-wrap items-center gap-2">
@@ -470,10 +448,10 @@ export function VerificationEditDialog({
                   key={y}
                   type="button"
                   onClick={() => toggleYear(y)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                     years.includes(y)
-                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      ? "bg-qty hover:bg-qty/90 text-sheet"
+                      : "bg-ink/5 text-ink-2 hover:bg-ink/10"
                   }`}
                 >
                   {y}
@@ -483,17 +461,17 @@ export function VerificationEditDialog({
           </div>
 
           {/* 4. Cascading KUGI Selection (Crucial Two-Step Process with Partial Save Support) */}
-          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <div className="space-y-3 pt-2 border-t border-rule">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <Tag className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <label className="text-sm font-bold text-ink flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-qty" />
                 Standar KUGI (Pemilihan 2 Langkah)
               </label>
               {(selectedNamaUnsur || selectedKugiId) && (
                 <button
                   type="button"
                   onClick={handleResetKugi}
-                  className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer"
+                  className="text-[13px] text-bound hover:underline flex items-center gap-0.5 cursor-pointer"
                 >
                   <X className="h-3 w-3" /> Reset KUGI
                 </button>
@@ -502,7 +480,7 @@ export function VerificationEditDialog({
 
             {/* Step 1 (Nama Unsur): Searchable Popover + Command Combobox */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-ink">
                 Langkah 1: Pilih Nama Unsur
               </label>
               <Popover open={openNamaUnsur} onOpenChange={setOpenNamaUnsur}>
@@ -512,7 +490,7 @@ export function VerificationEditDialog({
                       variant="outline"
                       role="combobox"
                       aria-expanded={openNamaUnsur}
-                      className="w-full justify-between text-left font-medium h-10 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs"
+                      className="w-full justify-between text-left font-medium h-10 border-ink/30 bg-sheet text-ink text-sm"
                     >
                       <span className="truncate">
                         {selectedNamaUnsur || "-- Cari & Pilih Nama Unsur KUGI --"}
@@ -521,11 +499,11 @@ export function VerificationEditDialog({
                     </Button>
                   }
                 />
-                <PopoverContent className="w-[--anchor-width] min-w-[340px] p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800" align="start">
+                <PopoverContent className="w-[--anchor-width] min-w-[340px] p-0 bg-sheet border-rule" align="start">
                   <Command>
-                    <CommandInput placeholder="Ketik untuk mencari Nama Unsur..." className="text-xs" />
+                    <CommandInput placeholder="Ketik untuk mencari Nama Unsur..." className="text-sm" />
                     <CommandList className="max-h-[250px] overflow-y-auto">
-                      <CommandEmpty className="p-3 text-xs text-slate-500 text-center">
+                      <CommandEmpty className="p-3 text-sm text-ink-2 text-center">
                         Nama unsur tidak ditemukan.
                       </CommandEmpty>
                       <CommandGroup>
@@ -537,15 +515,15 @@ export function VerificationEditDialog({
                               handleSelectNamaUnsur(nama);
                               setOpenNamaUnsur(false);
                             }}
-                            className="text-xs cursor-pointer py-1.5 focus:bg-slate-100 dark:focus:bg-slate-800"
+                            className="text-sm cursor-pointer py-1.5 focus:bg-ink/5"
                           >
                             <Check
                               className={cn(
-                                "mr-2 h-3.5 w-3.5 text-blue-600 dark:text-blue-400",
+                                "mr-2 h-3.5 w-3.5 text-qty",
                                 selectedNamaUnsur === nama ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">{nama}</span>
+                            <span className="font-semibold text-ink">{nama}</span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -558,15 +536,15 @@ export function VerificationEditDialog({
             {/* Step 2 (Kode Unsur): Dependent Dropdown (Optional for partial saves) */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <label className="text-sm font-semibold text-ink">
                   Langkah 2: Pilih Kode Unsur &amp; Katalog (Opsional)
                 </label>
                 {!selectedNamaUnsur ? (
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400">
+                  <span className="text-[13px] text-contour">
                     (Wajib selesaikan Langkah 1 terlebih dahulu)
                   </span>
                 ) : !selectedKugiId ? (
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  <span className="text-[13px] text-ink-2 italic">
                     (Boleh dikosongkan untuk simpan sebagian)
                   </span>
                 ) : null}
@@ -575,7 +553,7 @@ export function VerificationEditDialog({
                 value={selectedKugiId || ""}
                 onChange={(e) => setSelectedKugiId(e.target.value || null)}
                 disabled={!selectedNamaUnsur || availableKodeUnsurList.length === 0}
-                className="w-full h-10 rounded-lg border border-border dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs font-medium text-slate-800 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 dark:disabled:bg-slate-900 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full h-10 rounded-lg border border-border bg-sheet px-3 text-sm font-medium text-ink outline-none transition-colors focus:border-qty focus:ring-2 focus:ring-qty/30 disabled:bg-ink/5 disabled:text-ink-2 disabled:cursor-not-allowed cursor-pointer"
               >
                 <option value="">-- Lewati atau Pilih Kode Unsur &amp; Katalog --</option>
                 {availableKodeUnsurList.map((k) => (
@@ -588,58 +566,58 @@ export function VerificationEditDialog({
 
             {/* Selected KUGI Preview Card or Partial Save Indicator */}
             {selectedKugi ? (
-              <div className="p-3 bg-slate-50 dark:bg-slate-900/90 border border-border dark:border-slate-800 rounded-xl space-y-1.5">
-                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
+              <div className="p-3 bg-sheet border border-border rounded-xl space-y-1.5">
+                <div className="font-bold text-ink flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs">{selectedKugi.nama_unsur}</span>
-                    <Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-800 border-border dark:border-slate-700 text-blue-600 dark:text-blue-400 font-mono">
+                    <span className="text-sm">{selectedKugi.nama_unsur}</span>
+                    <Badge variant="outline" className="text-xs bg-sheet border-border text-qty">
                       {selectedKugi.kode_unsur}
                     </Badge>
                   </div>
                   {selectedKugi.katalog_unsur && (
-                    <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    <span className="text-sm text-qty font-medium">
                       {selectedKugi.katalog_unsur}
                     </span>
                   )}
                 </div>
                 {selectedKugi.definisi && (
-                  <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                  <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2">
                     {selectedKugi.definisi}
                   </p>
                 )}
               </div>
             ) : selectedNamaUnsur ? (
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between">
-                <span>Nama Unsur: <strong className="text-slate-800 dark:text-slate-200">{selectedNamaUnsur}</strong></span>
-                <span className="text-xs text-muted-foreground">(Kode belum ditentukan)</span>
+              <div className="p-2.5 bg-sheet border border-dashed border-ink/30 rounded-lg text-sm text-ink-2 flex items-center justify-between">
+                <span>Nama Unsur: <strong className="text-ink">{selectedNamaUnsur}</strong></span>
+                <span className="text-sm text-muted-foreground">(Kode belum ditentukan)</span>
               </div>
             ) : null}
           </div>
 
           {/* 5. Searchable Layer Utama (Unrestricted Scroll) & Layer Pelengkap */}
-          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <div className="space-y-3 pt-2 border-t border-rule">
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Layers className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                <label className="text-sm font-bold text-ink flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-qty" />
                   Layer Utama (Searchable Combobox)
                 </label>
-                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                <span className="text-[13px] font-semibold text-qty">
                   {opdStrictLayers.length} layer tersedia dari @{opdUsername || "OPD"}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-[13px] text-ink-2 mt-0.5">
                 Hanya menampilkan layer Geoportal yang diunggah oleh <strong>@{opdUsername || "OPD"}</strong>.
               </p>
             </div>
 
             {!opdUsername ? (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <div className="p-3 bg-contour/10 border border-contour/40 rounded-lg text-sm text-contour flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-contour shrink-0" />
                 <span>Perangkat Daerah ini belum memiliki username JIGD terdaftar.</span>
               </div>
             ) : opdStrictLayers.length === 0 ? (
-              <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400">
+              <div className="p-3 bg-sheet border border-rule rounded-lg text-sm text-ink-2">
                 Tidak ditemukan layer di Geoportal dengan pemilik <strong>@{opdUsername}</strong>.
               </div>
             ) : (
@@ -652,7 +630,7 @@ export function VerificationEditDialog({
                         variant="outline"
                         role="combobox"
                         aria-expanded={openLayerUtama}
-                        className="w-full justify-between text-left font-normal h-10 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs"
+                        className="w-full justify-between text-left font-normal h-10 border-ink/30 bg-sheet text-ink text-sm"
                       >
                         <span className="truncate">
                           {selectedLayerUtama
@@ -663,12 +641,12 @@ export function VerificationEditDialog({
                       </Button>
                     }
                   />
-                  <PopoverContent className="w-[--anchor-width] min-w-[360px] p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800" align="start">
+                  <PopoverContent className="w-[--anchor-width] min-w-[360px] p-0 bg-sheet border-rule" align="start">
                     <Command>
-                      <CommandInput placeholder="Ketik untuk mencari layer..." className="text-xs" />
+                      <CommandInput placeholder="Ketik untuk mencari layer..." className="text-sm" />
                       {/* CRITICAL: Unrestricted scroll list - no slicing or limits */}
                       <CommandList className="max-h-[300px] overflow-y-auto">
-                        <CommandEmpty className="p-3 text-xs text-slate-500 text-center">
+                        <CommandEmpty className="p-3 text-sm text-ink-2 text-center">
                           Layer tidak ditemukan.
                         </CommandEmpty>
                         <CommandGroup>
@@ -679,9 +657,9 @@ export function VerificationEditDialog({
                               handleLayerUtamaChange("");
                               setOpenLayerUtama(false);
                             }}
-                            className="text-xs text-rose-600 cursor-pointer py-2 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                            className="text-sm text-bound cursor-pointer py-2 focus:bg-bound/10"
                           >
-                            <X className="h-3.5 w-3.5 mr-2 text-rose-500" />
+                            <X className="h-3.5 w-3.5 mr-2 text-bound" />
                             <span>-- Tidak Ada / Hapus Layer Utama --</span>
                           </CommandItem>
 
@@ -694,17 +672,17 @@ export function VerificationEditDialog({
                                 handleLayerUtamaChange(layer.uuid);
                                 setOpenLayerUtama(false);
                               }}
-                              className="text-xs cursor-pointer py-2 focus:bg-slate-100 dark:focus:bg-slate-800"
+                              className="text-sm cursor-pointer py-2 focus:bg-ink/5"
                             >
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400",
+                                  "mr-2 h-4 w-4 shrink-0 text-qty",
                                   layerUtamaUuid === layer.uuid ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               <div className="flex flex-col flex-1 min-w-0">
-                                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{layer.title}</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                                <span className="font-semibold text-ink truncate">{layer.title}</span>
+                                <span className="text-xs text-ink-2 truncate">
                                   {layer.name} • {layer.geometry_type} • {layer.attribute_count || 0} atribut
                                 </span>
                               </div>
@@ -717,16 +695,16 @@ export function VerificationEditDialog({
                 </Popover>
 
                 {layerUtamaUuid && selectedLayerUtama && (
-                  <div className="flex items-center justify-between text-[11px] text-blue-900 dark:text-blue-200 bg-blue-50/70 dark:bg-blue-950/50 p-2 rounded-lg border border-blue-200 dark:border-blue-900">
+                  <div className="flex items-center justify-between text-[13px] text-qty bg-qty/10 p-2 rounded-lg border border-qty/40">
                     <span className="flex items-center gap-1 font-semibold">
-                      <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <Check className="h-3.5 w-3.5 text-qty" />
                       Layer Utama Terpaut
                     </span>
                     <a
                       href={`https://jigd.kaltimprov.go.id/catalogue/#/dataset/${selectedLayerUtama.id_dataset}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                      className="inline-flex items-center gap-1 text-qty hover:underline font-medium"
                     >
                       <span>Lihat di Geoportal</span>
                       <ExternalLink className="h-3 w-3" />
@@ -737,14 +715,14 @@ export function VerificationEditDialog({
                 {/* Layer Pelengkap Searchable Multi-Select Combobox */}
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    <label className="text-sm font-bold text-ink">
                       Layer Pelengkap ({layerPelengkapUuids.length} layer terpilih)
                     </label>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Searchable Multi-Select</span>
+                    <span className="text-[13px] text-ink-2 font-normal">Searchable Multi-Select</span>
                   </div>
 
                   {availablePelengkapLayers.length === 0 ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 italic p-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
+                    <p className="text-sm text-ink-2 italic p-2 border border-rule rounded-lg bg-sheet">
                       Tidak ada layer lain milik @{opdUsername} untuk dijadikan pelengkap.
                     </p>
                   ) : (
@@ -757,7 +735,7 @@ export function VerificationEditDialog({
                               variant="outline"
                               role="combobox"
                               aria-expanded={openLayerPelengkap}
-                              className="w-full justify-between text-left font-normal h-10 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs"
+                              className="w-full justify-between text-left font-normal h-10 border-ink/30 bg-sheet text-ink text-sm"
                             >
                               <span className="truncate">
                                 {layerPelengkapUuids.length > 0
@@ -768,11 +746,11 @@ export function VerificationEditDialog({
                             </Button>
                           }
                         />
-                        <PopoverContent className="w-[--anchor-width] min-w-[360px] p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800" align="start">
+                        <PopoverContent className="w-[--anchor-width] min-w-[360px] p-0 bg-sheet border-rule" align="start">
                           <Command>
-                            <CommandInput placeholder="Ketik untuk mencari layer pelengkap..." className="text-xs" />
+                            <CommandInput placeholder="Ketik untuk mencari layer pelengkap..." className="text-sm" />
                             <CommandList className="max-h-[260px] overflow-y-auto">
-                              <CommandEmpty className="p-3 text-xs text-slate-500 text-center">
+                              <CommandEmpty className="p-3 text-sm text-ink-2 text-center">
                                 Layer pelengkap tidak ditemukan.
                               </CommandEmpty>
                               <CommandGroup>
@@ -783,17 +761,17 @@ export function VerificationEditDialog({
                                       key={layer.uuid}
                                       value={`${layer.title} ${layer.name} ${layer.geometry_type}`}
                                       onSelect={() => togglePelengkapLayer(layer.uuid)}
-                                      className="text-xs cursor-pointer py-2 focus:bg-slate-100 dark:focus:bg-slate-800"
+                                      className="text-sm cursor-pointer py-2 focus:bg-ink/5"
                                     >
                                       <Check
                                         className={cn(
-                                          "mr-2 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400",
+                                          "mr-2 h-4 w-4 shrink-0 text-qty",
                                           isChecked ? "opacity-100" : "opacity-0"
                                         )}
                                       />
                                       <div className="flex flex-col flex-1 min-w-0">
-                                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{layer.title}</span>
-                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                                        <span className="font-semibold text-ink truncate">{layer.title}</span>
+                                        <span className="text-xs text-ink-2 truncate">
                                           {layer.name} • {layer.geometry_type} • {layer.attribute_count || 0} atribut
                                         </span>
                                       </div>
@@ -808,7 +786,7 @@ export function VerificationEditDialog({
 
                       {/* Removable Badges below input */}
                       {layerPelengkapUuids.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg max-h-36 overflow-y-auto">
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-sheet border border-rule rounded-lg max-h-36 overflow-y-auto">
                           {layerPelengkapUuids.map((uuid) => {
                             const lObj = opdStrictLayers.find((l) => l.uuid === uuid);
                             const title = lObj?.title || lObj?.name || uuid;
@@ -816,7 +794,7 @@ export function VerificationEditDialog({
                               <Badge
                                 key={uuid}
                                 variant="outline"
-                                className="pl-2 pr-1 py-0.5 text-[11px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1 max-w-full"
+                                className="pl-2 pr-1 py-0.5 text-[13px] bg-sheet border-rule text-ink flex items-center gap-1 max-w-full"
                               >
                                 <span className="truncate max-w-[220px]" title={title}>
                                   {title}
@@ -827,7 +805,7 @@ export function VerificationEditDialog({
                                     e.stopPropagation();
                                     removePelengkapLayer(uuid);
                                   }}
-                                  className="hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full p-0.5 cursor-pointer text-slate-400 hover:text-rose-600 transition-colors"
+                                  className="hover:bg-ink/10 rounded-full p-0.5 cursor-pointer text-ink-2 hover:text-bound transition-colors"
                                   title="Hapus layer ini"
                                 >
                                   <X className="h-3 w-3" />
@@ -851,7 +829,7 @@ export function VerificationEditDialog({
             variant="outline"
             onClick={onClose}
             disabled={isSaving}
-            className="border-slate-200 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="border-rule"
           >
             Batal
           </Button>
@@ -859,7 +837,7 @@ export function VerificationEditDialog({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs"
+            className="bg-qty hover:bg-qty/90 text-sheet font-semibold"
           >
             {isSaving ? (
               <>
