@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { DbErrorBanner } from "@/components/db-error-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,10 +15,7 @@ import {
   CheckCircle2,
   Layers,
   Globe2,
-  Sparkles,
   TrendingUp,
-  BarChart3,
-  PieChart as PieIcon,
   ArrowUpRight,
   Loader2,
   FileCheck2,
@@ -34,7 +32,9 @@ import {
   Pie,
   Legend,
 } from "recharts";
-import { supabase } from "@/lib/supabase";
+import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
+import { fetchTahunAktif, formatDaftarTahun, TAHUN_DEFAULT } from "@/lib/tahun";
+import { useMounted } from "@/lib/use-mounted";
 import { CacheLayerGeoportal, MasterOpd, DaftarData } from "@/types/database";
 
 const GEOMETRY_COLORS = [
@@ -55,36 +55,46 @@ const SRID_COLORS = [
   "#64748b", // slate-500
 ];
 
+/** Ambil data statistik dari Supabase secara paralel (tidak menyentuh state React). */
+function loadOverviewData() {
+  return Promise.all([
+    fetchAllRows<CacheLayerGeoportal>((from, to) =>
+      supabase.from("cache_layer_geoportal").select("*").order("id_dataset").range(from, to)
+    ),
+    supabase.from("master_opd").select("*"),
+    fetchAllRows<DaftarData>((from, to) =>
+      supabase.from("daftar_data").select("*").order("id").range(from, to)
+    ),
+    fetchTahunAktif(),
+  ]);
+}
+
 export default function OverviewPage() {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useMounted();
   const [layers, setLayers] = useState<CacheLayerGeoportal[]>([]);
   const [opds, setOpds] = useState<MasterOpd[]>([]);
   const [daftarData, setDaftarData] = useState<DaftarData[]>([]);
+  const [tahunAktif, setTahunAktif] = useState<number[]>(TAHUN_DEFAULT);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const [layersRes, opdsRes, daftarRes] = await Promise.all([
-        supabase.from("cache_layer_geoportal").select("*"),
-        supabase.from("master_opd").select("*"),
-        supabase.from("daftar_data").select("*"),
-      ]);
-
-      if (layersRes.data) setLayers(layersRes.data as CacheLayerGeoportal[]);
-      if (opdsRes.data) setOpds(opdsRes.data);
-      if (daftarRes.data) setDaftarData(daftarRes.data);
-    } catch (err) {
-      console.error("Error loading overview analytics:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchData = useCallback(
+    () =>
+      loadOverviewData()
+        .then(([layersRes, opdsRes, daftarRes, tahun]) => {
+          if (!layersRes.error) setLayers(layersRes.data);
+          if (opdsRes.data) setOpds(opdsRes.data);
+          if (!daftarRes.error) setDaftarData(daftarRes.data);
+          setTahunAktif(tahun);
+          setLoadError(layersRes.error || opdsRes.error || daftarRes.error ? DB_UNREACHABLE_MESSAGE : null);
+        })
+        .catch((err) => {
+          console.error("Error loading overview analytics:", err);
+          setLoadError(DB_UNREACHABLE_MESSAGE);
+        })
+        .finally(() => setIsLoading(false)),
+    []
+  );
 
   useEffect(() => {
     fetchData();
@@ -144,8 +154,7 @@ export default function OverviewPage() {
 
   // Yearly Progress Comparison
   const yearlyData = useMemo(() => {
-    const years = [2024, 2025, 2026];
-    return years.map((yr) => {
+    return tahunAktif.map((yr) => {
       const yearRows = daftarData.filter(
         (d) => Array.isArray(d.tahun_berlaku) && d.tahun_berlaku.includes(yr)
       );
@@ -157,13 +166,14 @@ export default function OverviewPage() {
         belum: yearRows.length - filled,
       };
     });
-  }, [daftarData]);
+  }, [daftarData, tahunAktif]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans transition-colors">
       <Navbar currentPage="overview" />
 
       <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
+        <DbErrorBanner message={loadError} />
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
@@ -461,7 +471,7 @@ export default function OverviewPage() {
                 Perbandingan Kemajuan Keterisian Data Antar Tahun
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Evaluasi progres penyediaan dan publikasi data geospasial target 2024, 2025, dan 2026
+                Evaluasi progres penyediaan dan publikasi data geospasial target {formatDaftarTahun(tahunAktif)}
               </p>
             </div>
           </div>

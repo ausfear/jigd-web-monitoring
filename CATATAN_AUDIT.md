@@ -117,53 +117,94 @@ Sheet Excel sebaiknya ikut diperbarui untuk baris-baris di atas.
 
 Kode aplikasi sudah mengurutkan tabel Verifikasi berdasarkan kolom `urutan`: nomor global 1–222 mengikuti urutan baris di Excel, sehingga OPD dan nomor data di dalam OPD ikut terurut. Contoh: filter OPD Biro Pemotda akan menampilkan data no. 1–5 sesuai Excel. Data yang ditambahkan belakangan (tanpa `urutan`) tampil paling akhir, yang terbaru di atas.
 
-**Satu langkah yang perlu Anda lakukan:** buka Supabase Dashboard → SQL Editor, lalu jalankan seluruh isi
-`migrations/2026-10-31_urutan_daftar_data.sql`.
-
-File ini menambah kolom `urutan` dan langsung mengisi nilainya untuk 222 baris. Migrasi ini tidak bisa saya jalankan sendiri karena anon key tidak boleh mengubah struktur tabel. Sebelum migrasi dijalankan, aplikasi tetap berjalan normal, hanya urutannya belum aktif.
+**Status:** migrasi `migrations/2026-10-31_urutan_daftar_data.sql` sudah dijalankan pada 2026-10-31. Seluruh 222 baris sudah memiliki `urutan`.
 
 ---
 
 ## 4. Saran perbaikan (prioritas tinggi → rendah)
 
-### 4.1 [KRITIS] Siapa pun bisa mengubah atau menghapus data tanpa login
+### 4.1 [KRITIS] Siapa pun bisa mengubah atau menghapus data tanpa login: **SELESAI**
 
-Policy RLS di `database_schema.sql` mengizinkan INSERT/UPDATE/DELETE untuk role **anon**. Anon key memang dikirim ke browser, jadi siapa pun yang membuka situs bisa memanggil REST API Supabase dan menghapus seluruh `daftar_data`. Login di `/dashboard` hanya melindungi tampilan, bukan datanya.
+Policy RLS dulu mengizinkan INSERT/UPDATE/DELETE untuk role **anon**. Anon key memang dikirim ke browser, jadi siapa pun bisa memanggil REST API Supabase dan menghapus data.
 
-Solusi: jalankan `migrations/OPSIONAL_rls_hanya_user_login.sql`. Akses baca publik tetap terbuka. File ini aman dijalankan setelah versi kode ini ter-deploy, karena route sync sudah memakai sesi login.
+`migrations/OPSIONAL_rls_hanya_user_login.sql` sudah dijalankan. Hasilnya sudah dicek:
+- update dan insert tanpa login ditolak;
+- akses baca publik tetap terbuka.
 
-### 4.2 Sinkronisasi menimpa nama OPD
+`database_schema.sql` juga sudah diperbarui dengan policy yang sama.
 
-Setiap kali sinkronisasi berjalan, `master_opd.nama_opd` ditimpa dengan nama dari GeoNode. Nama OPD yang dirapikan manual di database akan kembali seperti semula. Saran: hanya isi `nama_opd` saat OPD baru dibuat, atau simpan nama GeoNode di kolom terpisah.
+### 4.2 Sinkronisasi menimpa nama OPD: **SELESAI**
 
-### 4.3 Batas 1.000 dataset
+Sinkronisasi sekarang hanya **menambahkan OPD baru**, yaitu username GeoNode yang belum ada di `master_opd`. Nama OPD yang sudah ada tidak lagi diubah. Jumlah OPD baru ditampilkan di pesan hasil sinkronisasi.
 
-Sync mengambil `?limit=1000` dari GeoNode tanpa paginasi. Saat ini ada 455 dataset, jadi masih aman. Jika suatu saat lebih dari 1.000, sebagian layer tidak akan tersinkron. Penghapusan layer usang sudah diberi pengaman untuk kasus ini. Saran: ikuti `meta.next` untuk paginasi.
+### 4.3 Batas 1.000 dataset: **SELESAI**
 
-Hal serupa berlaku untuk query Supabase tanpa `.range()`. Saat ini `max_rows` di proyek Supabase cukup besar (3.309 baris KUGI terambil semua). Jika pengaturan itu dikembalikan ke default 1.000, daftar KUGI akan terpotong tanpa peringatan.
+- **GeoNode** (`/api/datasets/` dan `/api/owners/`): diambil per halaman (limit/offset) sampai `meta.total_count` terpenuhi. Jumlah halaman tetap 1 selama dataset ≤ 1.000. Sudah diuji 455/455, juga saat dipaksa per 200.
+- **Supabase**: tabel yang bisa besar (`cache_layer_geoportal`, `master_kugi`, `daftar_data`) diambil per 1.000 baris lewat `fetchAllRows()` di `lib/supabase.ts`. Hasilnya tidak terpotong walaupun `max_rows` proyek dikembalikan ke default.
 
-### 4.4 Tahun masih di-hardcode 2024–2026
+### 4.4 Tahun masih di-hardcode 2024–2026: **SELESAI**
 
-Tombol tahun di dialog Verifikasi dan kartu tahunan di Overview masih menyebut 2024–2026 secara langsung. Saat masuk Daftar Data 2027, tahun 2027 tidak bisa dipilih. Saran: buat daftar tahun dinamis, yaitu tahun berjalan ditambah tahun yang ada di data.
+Ada tombol baru **Pengaturan Tahun** di Dashboard untuk menambah atau menonaktifkan tahun. Tahun aktif dipakai di:
+- tombol Tahun Berlaku pada dialog Verifikasi;
+- filter tahun;
+- kartu tahunan di Overview;
+- pilihan tahun di Produsen;
+- tahun bawaan pada dialog Tambah Data dan Upload CSV.
 
-### 4.5 Kolom `status_keterisian` bisa tidak sinkron
+Menonaktifkan tahun **tidak menghapus data**. Filter tahun di Dashboard tetap menampilkan tahun lain yang masih tercatat pada data.
 
-Status ini disimpan terpisah, padahal nilainya bisa diturunkan dari ada atau tidaknya `layer_utama_uuid`. Dialog Verifikasi sudah konsisten, tetapi sumber lain bisa membuatnya tidak sinkron, misalnya tombol "Muat 6 Data Contoh" (mengisi status `true` tanpa layer) atau penyuntingan langsung di database. Saran: jadikan *generated column* atau isi lewat trigger.
+Perlu satu tabel baru, `pengaturan_tahun`: jalankan `migrations/2026-10-31_pengaturan_tahun.sql`. Isi awalnya 2025 dan 2026. Sebelum migrasi dijalankan, aplikasi memakai 2025 dan 2026 sebagai bawaan. Struktur `daftar_data` tidak berubah, karena `tahun_berlaku` (INTEGER[]) sudah bisa menampung tahun berapa pun.
 
-### 4.6 Lint gagal
+### 4.5 Kolom `status_keterisian` bisa tidak sinkron: **BELUM** (penjelasan)
 
-Ada 11 error ESLint lama, kebanyakan aturan `react-hooks/set-state-in-effect` (pola `setMounted(true)` dan sinkronisasi state di `useEffect`). Kode tetap berjalan, tetapi `npm run lint` akan gagal bila dipakai di CI.
+Status "Terisi" disimpan sebagai kolom tersendiri, padahal artinya sama dengan "punya Layer Utama". Saat ini datanya konsisten: 135 baris Terisi, semuanya punya layer. Keduanya bisa berbeda dalam dua kasus:
+
+1. **Data diubah langsung di Supabase (Table Editor/SQL).** Contoh: kolom `layer_utama_uuid` dikosongkan, tetapi `status_keterisian` masih `true`. Lewat aplikasi ini tidak terjadi, karena dialog Verifikasi selalu mengisi keduanya bersamaan.
+2. **Layernya dihapus atau diunggah ulang di GeoNode.** Sinkronisasi menghapus layer itu dari cache, tetapi baris daftar data masih menyimpan UUID lama dan tetap "Terisi". Di tabel, baris itu tampil "Belum ada layer terpaut" dengan status Terisi. Kasus ini sempat ditemukan saat update dari Excel: 9 baris merujuk layer yang sudah dihapus dari GeoNode, lalu saya ganti ke layer upload ulangnya (bagian 2).
+
+Saran:
+- Kasus 1: buat trigger di database yang otomatis mengisi `status_keterisian = (layer_utama_uuid IS NOT NULL)`.
+- Kasus 2: tampilkan peringatan "layer sudah tidak ada di GeoNode" pada baris tersebut. Lihat juga saran pengembangan no. 5.
+
+### 4.6 Lint gagal: **SELESAI**
+
+`npm run lint` sekarang bersih: 0 error dan 0 warning. Perubahan yang dilakukan:
+- Pola `setState` di `useEffect` diganti:
+  - filter OPD dibaca langsung dari URL `?opd=`;
+  - reset halaman dilakukan saat render;
+  - `useMounted()` dipakai untuk komponen yang hanya tampil di browser;
+  - data diambil lewat fungsi terpisah, lalu diterapkan di `.then()`.
+- Import yang tidak terpakai dihapus.
+
+Efek yang terlihat: muat ulang data setelah simpan atau sinkronisasi tidak lagi memunculkan spinner. Tabel langsung diperbarui, dan keempat query sekarang berjalan paralel.
 
 ### 4.7 Hal kecil lainnya
 
-- **Dialog Merge**: Layer dan KUGI dari data sumber dibuang begitu saja. Saran: pindahkan ke data target bila target masih kosong.
-- **Dialog Verifikasi**: Layer Utama milik OPD lain (jika ada) tidak tampil namanya, karena daftar pilihan hanya memuat layer milik OPD tersebut.
-- **Parser CSV**: Belum mendukung sel bertanda kutip yang berisi baris baru. Saran: pakai library seperti `papaparse`.
-- **Teks statis**: "Supabase Status: Aktif & Sinkron" di footer tabel ditulis langsung di kode, bukan status sebenarnya.
-- **README**: Masih template bawaan `create-next-app`. Perlu diisi cara setup `.env.local`, menjalankan skema dan migrasi, serta alur kerja tahunan.
-- **`.gitignore`**: Ada perubahan Anda yang belum di-commit (`# keterisian`) tanpa pola di bawahnya. Kemungkinan maksudnya mengecualikan file Excel. Sebaiknya tambahkan juga `backups/`.
+- **Dialog Merge: SELESAI.**
+  - Layer dan KUGI data sumber tidak lagi dibuang. Kolom yang kosong di data utama diisi dari data lainnya.
+  - Jika kedua data sudah berisi layer utama atau KUGI yang **berbeda**, muncul pilihan **data utama**. Nama data, layer utama, dan KUGI hasil merge diambil dari data utama itu.
+  - Layer utama data yang tidak dipilih disimpan sebagai layer pelengkap.
+- **Dialog Verifikasi:** dibiarkan apa adanya. Layer sengaja dibatasi ke milik OPD tersebut, karena daftar data selalu diunggah oleh OPD-nya sendiri.
+- **Parser CSV:** belum diubah. Sel bertanda kutip yang berisi baris baru masih belum didukung.
+- **Teks statis "Supabase Status: Aktif & Sinkron": SELESAI.** Sekarang menampilkan "Terhubung" atau "Tidak Terhubung" sesuai hasil pemuatan data.
+- **README: SELESAI.** Berisi deskripsi aplikasi, setup `.env.local`, skema dan migrasi, alur kerja tahunan, dan penanganan Supabase yang di-pause.
+- **`.gitignore`: SELESAI.** File Excel dan folder `backups/` diabaikan.
 
----
+### 4.8 Web tidak terbuka saat proyek Supabase di-pause: **SELESAI**
+
+Penyebabnya: `proxy.ts` (dulu `middleware.ts`) memeriksa sesi login ke Supabase pada **setiap** halaman tanpa batas waktu. Saat proyek di-pause, setiap halaman menunggu jawaban yang tidak pernah datang.
+
+Perbaikan:
+- Proxy hanya berjalan di `/dashboard`, `/login`, dan `/api`. Halaman publik tidak lagi menunggu Supabase.
+- Semua request Supabase diberi batas waktu:
+  - 5 detik untuk pengecekan sesi di proxy;
+  - 15 detik di browser;
+  - 20 detik di server.
+  Timeout tidak diulang otomatis oleh postgrest-js.
+- Jika database tidak bisa dihubungi:
+  - halaman menampilkan banner merah yang menyarankan *Restore project*;
+  - halaman login menampilkan pesan yang sama, bukan error teknis.
+- Pencegahan: `.github/workflows/supabase-keep-alive.yml` membaca 1 baris tabel dua kali seminggu (Senin dan Kamis). Workflow ini perlu secret `SUPABASE_URL` dan `SUPABASE_ANON_KEY` di GitHub.
 
 ## 5. Saran pengembangan
 

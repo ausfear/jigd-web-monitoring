@@ -5,15 +5,9 @@ export async function proxy(request: NextRequest) {
   return await updateSession(request);
 }
 
+// Proxy hanya dijalankan pada rute yang butuh sesi login. Halaman publik (Beranda, Overview,
+// Produsen, Datasets) tidak perlu menunggu Supabase Auth, sehingga tetap tampil walaupun
+// proyek Supabase sedang di-pause.
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - static image/asset extensions
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/dashboard/:path*", "/login", "/api/:path*"],
 };

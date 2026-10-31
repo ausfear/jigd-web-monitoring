@@ -9,35 +9,35 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MasterOpd, MasterKugi } from "@/types/database";
+import { MasterOpd } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 interface ManualAddDialogProps {
   opdList: MasterOpd[];
-  kugiList?: MasterKugi[];
+  /** Tahun yang terisi otomatis saat dialog dibuka (tahun aktif terbaru). */
+  defaultYear: number;
   onSuccess: () => void;
   size?: "default" | "sm";
   className?: string;
 }
 
-export function ManualAddDialog({ opdList, kugiList, onSuccess, size = "sm", className }: ManualAddDialogProps) {
+export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", className }: ManualAddDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Form states
   const [namaData, setNamaData] = useState("");
-  const [tahun, setTahun] = useState<string>("2026");
+  const [tahun, setTahun] = useState<string>(String(defaultYear));
   const [opdId, setOpdId] = useState<string>("");
 
   const resetForm = () => {
     setNamaData("");
-    setTahun("2026");
+    setTahun(String(defaultYear));
     setOpdId("");
     setErrorMessage(null);
   };
@@ -92,7 +92,7 @@ export function ManualAddDialog({ opdList, kugiList, onSuccess, size = "sm", cla
     <>
       <Button
         size={size}
-        onClick={() => setIsOpen(true)}
+        onClick={() => { setTahun(String(defaultYear)); setIsOpen(true); }}
         className={cn(
           "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs text-xs font-medium",
           className
@@ -169,7 +169,7 @@ export function ManualAddDialog({ opdList, kugiList, onSuccess, size = "sm", cla
               max={2100}
               value={tahun}
               onChange={(e) => setTahun(e.target.value)}
-              placeholder="2026"
+              placeholder={String(defaultYear)}
               className="text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
               required
             />

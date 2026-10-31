@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { GitMerge, AlertCircle, Loader2, Calendar, Building2, CheckCircle2, Trash2 } from "lucide-react";
+import { GitMerge, AlertCircle, AlertTriangle, Loader2, Calendar, Building2, CheckCircle2, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DaftarData } from "@/types/database";
+import { DaftarData, CacheLayerGeoportal } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 
 interface MergeDataDialogProps {
@@ -20,7 +20,54 @@ interface MergeDataDialogProps {
   isOpen: boolean;
   onClose: () => void;
   allRecords: DaftarData[];
+  allCachedLayers: CacheLayerGeoportal[];
   onSuccess: () => void;
+}
+
+type MainChoice = "source" | "target";
+
+const hasKugi = (r: DaftarData) => Boolean(r.kugi_id || r.kugi_nama_unsur);
+
+const kugiNama = (r: DaftarData) => (r.master_kugi?.nama_unsur || r.kugi_nama_unsur || "").trim();
+
+const kugiLabel = (r: DaftarData) => {
+  const nama = kugiNama(r);
+  if (!nama) return null;
+  return r.master_kugi?.kode_unsur ? `${nama} (${r.master_kugi.kode_unsur})` : nama;
+};
+
+// Dua KUGI dianggap sama bila kode unsurnya sama, atau (jika salah satu belum berkode) nama unsurnya sama.
+const isSameKugi = (a: DaftarData, b: DaftarData) =>
+  a.kugi_id && b.kugi_id ? a.kugi_id === b.kugi_id : kugiNama(a).toLowerCase() === kugiNama(b).toLowerCase();
+
+/**
+ * Hitung isi data hasil merge. Nilai data utama dipakai lebih dulu; kolom yang kosong diisi dari
+ * data lainnya. Layer utama data lain yang berbeda disimpan sebagai layer pelengkap agar tidak hilang.
+ */
+function buildMergedRecord(main: DaftarData, other: DaftarData, mergedYears: number[]) {
+  const layerUtama = main.layer_utama_uuid || other.layer_utama_uuid || null;
+  const layerPelengkap = Array.from(
+    new Set(
+      [
+        ...(main.layer_pelengkap_uuids || []),
+        ...(other.layer_pelengkap_uuids || []),
+        other.layer_utama_uuid,
+      ].filter((uuid): uuid is string => Boolean(uuid) && uuid !== layerUtama)
+    )
+  );
+  const kugiSource = hasKugi(main) ? main : other;
+
+  return {
+    nama_data: main.nama_data,
+    tag_bidang: main.tag_bidang || other.tag_bidang || null,
+    urutan: main.urutan ?? other.urutan ?? null,
+    tahun_berlaku: mergedYears,
+    kugi_id: kugiSource.kugi_id || null,
+    kugi_nama_unsur: kugiSource.kugi_nama_unsur || kugiSource.master_kugi?.nama_unsur || null,
+    layer_utama_uuid: layerUtama,
+    layer_pelengkap_uuids: layerPelengkap,
+    status_keterisian: Boolean(layerUtama),
+  };
 }
 
 export function MergeDataDialog({
@@ -28,11 +75,34 @@ export function MergeDataDialog({
   isOpen,
   onClose,
   allRecords,
+  allCachedLayers,
   onSuccess,
 }: MergeDataDialogProps) {
   const [selectedTargetId, setSelectedTargetId] = useState<string>("");
+  const [mainChoice, setMainChoice] = useState<MainChoice | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const resetAndClose = () => {
+    setSelectedTargetId("");
+    setMainChoice(null);
+    setErrorMessage(null);
+    onClose();
+  };
+
+  const layerMap = useMemo(() => {
+    const map = new Map<string, CacheLayerGeoportal>();
+    allCachedLayers.forEach((l) => {
+      if (l.uuid) map.set(l.uuid, l);
+    });
+    return map;
+  }, [allCachedLayers]);
+
+  const layerLabel = (uuid: string | null | undefined) => {
+    if (!uuid) return null;
+    const layer = layerMap.get(uuid);
+    return layer ? layer.title || layer.name : "Layer tidak ditemukan di cache";
+  };
 
   // Available target candidates from the SAME OPD
   const targetCandidates = useMemo(() => {
@@ -56,9 +126,44 @@ export function MergeDataDialog({
     return Array.from(set).sort((a, b) => a - b);
   }, [sourceRecord, targetRecord]);
 
+  // Konflik: kedua data sudah berisi layer utama atau KUGI yang berbeda
+  const conflict = useMemo(() => {
+    if (!sourceRecord || !targetRecord) return { layer: false, kugi: false };
+    return {
+      layer: Boolean(
+        sourceRecord.layer_utama_uuid &&
+          targetRecord.layer_utama_uuid &&
+          sourceRecord.layer_utama_uuid !== targetRecord.layer_utama_uuid
+      ),
+      kugi: hasKugi(sourceRecord) && hasKugi(targetRecord) && !isSameKugi(sourceRecord, targetRecord),
+    };
+  }, [sourceRecord, targetRecord]);
+  const hasConflict = conflict.layer || conflict.kugi;
+
+  // Tanpa konflik, data target menjadi data utama (perilaku semula)
+  const effectiveMain: MainChoice | null = hasConflict ? mainChoice : "target";
+
+  const mergedRecord = useMemo(() => {
+    if (!sourceRecord || !targetRecord || !effectiveMain) return null;
+    return effectiveMain === "source"
+      ? buildMergedRecord(sourceRecord, targetRecord, mergedYears)
+      : buildMergedRecord(targetRecord, sourceRecord, mergedYears);
+  }, [sourceRecord, targetRecord, effectiveMain, mergedYears]);
+
+  const mergedKugiLabel = useMemo(() => {
+    if (!sourceRecord || !targetRecord || !mergedRecord) return null;
+    const main = effectiveMain === "source" ? sourceRecord : targetRecord;
+    const other = effectiveMain === "source" ? targetRecord : sourceRecord;
+    return kugiLabel(hasKugi(main) ? main : other);
+  }, [sourceRecord, targetRecord, mergedRecord, effectiveMain]);
+
   const handleMerge = async () => {
     if (!sourceRecord || !targetRecord) {
       setErrorMessage("Silakan pilih data target untuk digabungkan.");
+      return;
+    }
+    if (!mergedRecord) {
+      setErrorMessage("Silakan pilih data mana yang dijadikan data utama.");
       return;
     }
 
@@ -66,12 +171,10 @@ export function MergeDataDialog({
       setIsMerging(true);
       setErrorMessage(null);
 
-      // 1. Update target record with merged years
+      // 1. Simpan hasil gabungan ke baris target
       const { error: updateErr } = await supabase
         .from("daftar_data")
-        .update({
-          tahun_berlaku: mergedYears,
-        })
+        .update(mergedRecord)
         .eq("id", targetRecord.id);
 
       if (updateErr) throw updateErr;
@@ -84,12 +187,11 @@ export function MergeDataDialog({
 
       if (deleteErr) throw deleteErr;
 
-      setSelectedTargetId("");
-      onClose();
+      resetAndClose();
       onSuccess();
     } catch (err) {
       console.error("Merge error:", err);
-      setErrorMessage(err instanceof Error ? err.message : "Gagal menggabungkan data.");
+      setErrorMessage((err as { message?: string })?.message || "Gagal menggabungkan data.");
     } finally {
       setIsMerging(false);
     }
@@ -97,16 +199,46 @@ export function MergeDataDialog({
 
   if (!sourceRecord) return null;
 
+  const conflictParts = [conflict.layer && "layer utama", conflict.kugi && "standar KUGI"].filter(Boolean).join(" dan ");
+
+  const renderChoiceCard = (choice: MainChoice, record: DaftarData, label: string) => {
+    const selected = mainChoice === choice;
+    return (
+      <button
+        type="button"
+        onClick={() => setMainChoice(choice)}
+        className={`w-full text-left p-3 rounded-lg border text-xs space-y-1 transition-colors cursor-pointer ${
+          selected
+            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/60 ring-2 ring-blue-500/30"
+            : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-300"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-slate-800 dark:text-slate-200">{label}</span>
+          {selected && <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+        </div>
+        <div className="font-semibold text-slate-900 dark:text-slate-100">{record.nama_data}</div>
+        <div className="text-slate-600 dark:text-slate-400">
+          <strong>Layer utama:</strong> {layerLabel(record.layer_utama_uuid) || "-"}
+        </div>
+        <div className="text-slate-600 dark:text-slate-400">
+          <strong>KUGI:</strong> {kugiLabel(record) || "-"}
+        </div>
+      </button>
+    );
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { setSelectedTargetId(""); onClose(); } }}>
-      <DialogContent className="sm:max-w-xl bg-white dark:bg-slate-900 border border-border dark:border-slate-800 text-slate-900 dark:text-slate-100">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetAndClose(); }}>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border border-border dark:border-slate-800 text-slate-900 dark:text-slate-100">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <GitMerge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             Merge dengan Data Lain (Satu OPD)
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
-            Gabungkan riwayat tahun data ini ke entri target dari Perangkat Daerah yang sama. Data target akan dipertahankan dan data sumber akan dihapus.
+            Gabungkan data ini ke entri target dari Perangkat Daerah yang sama. Tahun berlaku digabung, layer dan KUGI
+            ikut dipindahkan, lalu data sumber dihapus.
           </DialogDescription>
         </DialogHeader>
 
@@ -161,7 +293,10 @@ export function MergeDataDialog({
             ) : (
               <select
                 value={selectedTargetId}
-                onChange={(e) => setSelectedTargetId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedTargetId(e.target.value);
+                  setMainChoice(null);
+                }}
                 className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs font-medium text-slate-800 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="">-- Pilih Data Target --</option>
@@ -174,8 +309,25 @@ export function MergeDataDialog({
             )}
           </div>
 
+          {/* Pilih data utama bila isi kedua data berbeda */}
+          {targetRecord && hasConflict && (
+            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl space-y-2.5">
+              <div className="text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                <span>
+                  Kedua data sudah berisi <strong>{conflictParts}</strong> yang berbeda. Pilih data yang dijadikan{" "}
+                  <strong>data utama</strong>: nama data, layer utama, dan KUGI-nya yang dipakai pada hasil merge.
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {renderChoiceCard("source", sourceRecord, "Data Sumber")}
+                {renderChoiceCard("target", targetRecord, "Data Target")}
+              </div>
+            </div>
+          )}
+
           {/* Preview Merged Outcome */}
-          {targetRecord && (
+          {targetRecord && mergedRecord && (
             <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 rounded-xl space-y-2 text-xs">
               <div className="font-bold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -183,7 +335,7 @@ export function MergeDataDialog({
               </div>
               <div className="space-y-1 text-slate-700 dark:text-slate-300">
                 <p>
-                  <strong>Nama Data Akhir:</strong> {targetRecord.nama_data}
+                  <strong>Nama Data Akhir:</strong> {mergedRecord.nama_data}
                 </p>
                 <p className="flex items-center gap-1.5">
                   <strong>Tahun Berlaku Gabungan:</strong>
@@ -198,9 +350,22 @@ export function MergeDataDialog({
                     ))}
                   </span>
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-                  Standar KUGI dan ID Layer dari data target akan tetap tersimpan.
+                <p>
+                  <strong>Layer Utama:</strong> {layerLabel(mergedRecord.layer_utama_uuid) || "-"}
+                  {mergedRecord.layer_pelengkap_uuids.length > 0 && (
+                    <span className="text-slate-500 dark:text-slate-400">
+                      {" "}(+ {mergedRecord.layer_pelengkap_uuids.length} layer pelengkap)
+                    </span>
+                  )}
                 </p>
+                <p>
+                  <strong>Standar KUGI:</strong> {mergedKugiLabel || "-"}
+                </p>
+                {conflict.layer && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                    Layer utama dari data yang tidak dipilih disimpan sebagai layer pelengkap, sehingga tidak hilang.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -210,7 +375,7 @@ export function MergeDataDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => { setSelectedTargetId(""); onClose(); }}
+            onClick={resetAndClose}
             disabled={isMerging}
             className="border-slate-200 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
           >
@@ -219,7 +384,7 @@ export function MergeDataDialog({
           <Button
             type="button"
             onClick={handleMerge}
-            disabled={isMerging || !selectedTargetId}
+            disabled={isMerging || !selectedTargetId || !mergedRecord}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs"
           >
             {isMerging ? (

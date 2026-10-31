@@ -18,9 +18,8 @@ import {
   Loader2,
   ArrowRight,
   MapPin,
-  CheckCircle2,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,6 +51,8 @@ export default function LoginPage() {
           setErrorMessage("Email atau kata sandi tidak cocok. Silakan periksa kembali.");
         } else if (error.message.includes("Email not confirmed")) {
           setErrorMessage("Alamat email belum dikonfirmasi. Silakan periksa kotak masuk email Anda.");
+        } else if (error.name === "AuthRetryableFetchError" || !error.status || error.status >= 500) {
+          setErrorMessage(DB_UNREACHABLE_MESSAGE);
         } else {
           setErrorMessage(error.message || "Gagal masuk. Silakan coba lagi.");
         }

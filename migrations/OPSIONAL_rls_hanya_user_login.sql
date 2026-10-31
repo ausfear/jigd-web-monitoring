@@ -1,5 +1,5 @@
 -- ==============================================================================
--- OPSIONAL (BELUM DIJALANKAN): Batasi operasi tulis hanya untuk user yang login
+-- Batasi operasi tulis hanya untuk user yang login (sudah dijalankan 2026-10-31)
 -- ------------------------------------------------------------------------------
 -- Masalah: policy saat ini mengizinkan INSERT/UPDATE/DELETE untuk role anon.
 -- Anon key ikut terkirim ke browser, sehingga siapa pun bisa mengubah/menghapus

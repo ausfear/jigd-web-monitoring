@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { DbErrorBanner } from "@/components/db-error-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Building2,
@@ -30,67 +30,70 @@ import {
   Calendar,
   Layers,
   FileCheck2,
-  ExternalLink,
-  ChevronRight,
   MoreHorizontal,
   Database,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
   Loader2,
   TrendingUp,
   Award,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
+import { fetchTahunAktif, TAHUN_DEFAULT } from "@/lib/tahun";
 import { MasterOpd, DaftarData, CacheLayerGeoportal } from "@/types/database";
+
+/** Ambil data produsen dari Supabase secara paralel (tidak menyentuh state React). */
+function loadProdusenData() {
+  return Promise.all([
+    supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
+    fetchAllRows<DaftarData>((from, to) =>
+      supabase.from("daftar_data").select("*").order("id").range(from, to)
+    ),
+    fetchAllRows<CacheLayerGeoportal>((from, to) =>
+      supabase.from("cache_layer_geoportal").select("*").order("id_dataset").range(from, to)
+    ),
+    fetchTahunAktif(),
+  ]);
+}
 
 export default function ProdusenPage() {
   const router = useRouter();
   const [opdList, setOpdList] = useState<MasterOpd[]>([]);
   const [dataList, setDataList] = useState<DaftarData[]>([]);
   const [cachedLayers, setCachedLayers] = useState<CacheLayerGeoportal[]>([]);
+  const [tahunAktif, setTahunAktif] = useState<number[]>(TAHUN_DEFAULT);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Filters
+  // Filters (null = tahun aktif terbaru)
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  const [yearChoice, setYearChoice] = useState<string | null>(null);
+  const selectedYear = yearChoice ?? String(Math.max(...tahunAktif));
   const [showActiveOnly, setShowActiveOnly] = useState<boolean>(true);
 
   // Fetch data
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const [opdRes, daftarRes, layersRes] = await Promise.all([
-        supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
-        supabase.from("daftar_data").select("*"),
-        supabase.from("cache_layer_geoportal").select("*"),
-      ]);
-
-      if (opdRes.data) setOpdList(opdRes.data);
-      if (daftarRes.data) setDataList(daftarRes.data);
-      if (layersRes.data) setCachedLayers(layersRes.data as CacheLayerGeoportal[]);
-    } catch (err) {
-      console.error("Error fetching produsen data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchData = useCallback(
+    () =>
+      loadProdusenData()
+        .then(([opdRes, daftarRes, layersRes, tahun]) => {
+          if (opdRes.data) setOpdList(opdRes.data);
+          if (!daftarRes.error) setDataList(daftarRes.data);
+          if (!layersRes.error) setCachedLayers(layersRes.data);
+          setTahunAktif(tahun);
+          setLoadError(opdRes.error || daftarRes.error || layersRes.error ? DB_UNREACHABLE_MESSAGE : null);
+        })
+        .catch((err) => {
+          console.error("Error fetching produsen data:", err);
+          setLoadError(DB_UNREACHABLE_MESSAGE);
+        })
+        .finally(() => setIsLoading(false)),
+    []
+  );
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Extract available years
-  const availableYears = useMemo(() => {
-    const yearsSet = new Set<number>([2024, 2025, 2026]);
-    dataList.forEach((d) => {
-      if (Array.isArray(d.tahun_berlaku)) {
-        d.tahun_berlaku.forEach((y) => yearsSet.add(y));
-      }
-    });
-    return Array.from(yearsSet).sort((a, b) => b - a);
-  }, [dataList]);
+  // Pilihan tahun mengikuti Pengaturan Tahun (terbaru di atas)
+  const availableYears = useMemo(() => [...tahunAktif].sort((a, b) => b - a), [tahunAktif]);
 
   // Map layer counts by owner_username
   const layerCountsByOwner = useMemo(() => {
@@ -177,6 +180,7 @@ export default function ProdusenPage() {
       <Navbar currentPage="produsen" />
 
       <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
+        <DbErrorBanner message={loadError} />
         {/* Top Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
@@ -321,7 +325,7 @@ export default function ProdusenPage() {
                 <select
                   id="filter-year-produsen"
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
+                  onChange={(e) => setYearChoice(e.target.value)}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                 >
                   <option value="all">Semua Tahun</option>

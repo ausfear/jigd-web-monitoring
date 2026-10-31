@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   FileCheck2,
   Layers,
@@ -51,6 +51,8 @@ interface VerificationEditDialogProps {
   onClose: () => void;
   allCachedLayers: CacheLayerGeoportal[];
   allKugi: MasterKugi[];
+  /** Tahun aktif dari Pengaturan Tahun (pilihan tombol Tahun Berlaku). */
+  tahunAktif: number[];
   availableTags?: string[];
   onSuccess: () => void;
 }
@@ -61,6 +63,7 @@ export function VerificationEditDialog({
   onClose,
   allCachedLayers,
   allKugi,
+  tahunAktif,
   availableTags = [],
   onSuccess,
 }: VerificationEditDialogProps) {
@@ -90,14 +93,16 @@ export function VerificationEditDialog({
   // If Layer Utama is cleared/empty, status is "Belum Terisi" (false).
   const statusKeterisian = Boolean(layerUtamaUuid);
 
-  // Synchronize state when target record opens
-  useEffect(() => {
+  // Synchronize state when target record opens (disesuaikan saat render, bukan di useEffect)
+  const [prevRecord, setPrevRecord] = useState<DaftarData | null>(null);
+  if (record !== prevRecord) {
+    setPrevRecord(record);
     if (record) {
       setNamaData(record.nama_data || "");
       setTagBidang(record.tag_bidang || "");
       setTagSearch("");
       setOpenTagBidang(false);
-      setYears(record.tahun_berlaku || [2026]);
+      setYears(record.tahun_berlaku?.length ? record.tahun_berlaku : [Math.max(...tahunAktif)]);
       setSelectedKugiId(record.kugi_id || null);
 
       if (record.kugi_id) {
@@ -116,7 +121,13 @@ export function VerificationEditDialog({
       setOpenLayerUtama(false);
       setOpenLayerPelengkap(false);
     }
-  }, [record, allKugi]);
+  }
+
+  // Pilihan tahun: tahun aktif, ditambah tahun lama yang masih tercatat pada data ini
+  const yearOptions = useMemo(
+    () => Array.from(new Set([...tahunAktif, ...(record?.tahun_berlaku || [])])).sort((a, b) => a - b),
+    [tahunAktif, record]
+  );
 
   // OPD username_jigd for strict filtering
   const opdUsername = record?.master_opd?.username_jigd;
@@ -205,7 +216,7 @@ export function VerificationEditDialog({
     setLayerPelengkapUuids((prev) => prev.filter((id) => id !== uuid));
   };
 
-  // Year management: Strictly predefined 2024, 2025, 2026 only
+  // Year management: pilihan mengikuti Pengaturan Tahun
   const toggleYear = (y: number) => {
     setYears((prev) =>
       prev.includes(y) ? prev.filter((item) => item !== y) : [...prev, y].sort((a, b) => a - b)
@@ -447,14 +458,14 @@ export function VerificationEditDialog({
             </Popover>
           </div>
 
-          {/* 3. Tahun Berlaku Management: Predefined 2024, 2025, 2026 ONLY */}
+          {/* 3. Tahun Berlaku Management: mengikuti Pengaturan Tahun */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
               Tahun Berlaku:
             </label>
-            <div className="flex items-center gap-2">
-              {[2024, 2025, 2026].map((y) => (
+            <div className="flex flex-wrap items-center gap-2">
+              {yearOptions.map((y) => (
                 <button
                   key={y}
                   type="button"

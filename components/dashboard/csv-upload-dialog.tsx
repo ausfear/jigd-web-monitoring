@@ -1,26 +1,23 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { 
-  Upload, 
-  FileSpreadsheet, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
-  ArrowRight, 
-  Building2, 
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ArrowRight,
   Calendar,
   Sparkles,
-  RefreshCcw
+  RefreshCcw,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,12 +42,14 @@ interface ProducerMapping {
 
 interface CsvUploadDialogProps {
   opdList: MasterOpd[];
+  /** Tahun yang terisi otomatis saat dialog dibuka (tahun aktif terbaru). */
+  defaultYear: number;
   onSuccess: () => void;
   size?: "default" | "sm";
   className?: string;
 }
 
-export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: CsvUploadDialogProps) {
+export function CsvUploadDialog({ opdList, defaultYear, onSuccess, size = "sm", className }: CsvUploadDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isInserting, setIsInserting] = useState(false);
@@ -60,7 +59,7 @@ export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: 
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedRows, setParsedRows] = useState<CsvRow[]>([]);
   const [mappings, setMappings] = useState<ProducerMapping[]>([]);
-  const [tahunBerlaku, setTahunBerlaku] = useState<string>("2026");
+  const [tahunBerlaku, setTahunBerlaku] = useState<string>(String(defaultYear));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,7 +67,7 @@ export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: 
     setFileName(null);
     setParsedRows([]);
     setMappings([]);
-    setTahunBerlaku("2026");
+    setTahunBerlaku(String(defaultYear));
     setErrorMessage(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -271,7 +270,7 @@ export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: 
       <Button
         variant="outline"
         size={size}
-        onClick={() => setIsOpen(true)}
+        onClick={() => { setTahunBerlaku(String(defaultYear)); setIsOpen(true); }}
         className={cn(
           "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-2xs text-xs font-medium",
           className
@@ -361,7 +360,7 @@ export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: 
                   value={tahunBerlaku}
                   onChange={(e) => setTahunBerlaku(e.target.value)}
                   className="w-24 h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500 font-semibold text-center"
-                  placeholder="2026"
+                  placeholder={String(defaultYear)}
                   required
                 />
               </div>

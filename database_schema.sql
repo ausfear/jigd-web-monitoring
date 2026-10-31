@@ -64,6 +64,14 @@ CREATE TABLE IF NOT EXISTS daftar_data (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+-- 5. Table: pengaturan_tahun
+-- Tahun aktif yang dipakai aplikasi (diatur dari tombol "Pengaturan Tahun" di Dashboard)
+CREATE TABLE IF NOT EXISTS pengaturan_tahun (
+    tahun INTEGER PRIMARY KEY CHECK (tahun BETWEEN 2000 AND 2100),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+INSERT INTO pengaturan_tahun (tahun) VALUES (2025), (2026) ON CONFLICT (tahun) DO NOTHING;
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_daftar_data_opd_id ON daftar_data(opd_id);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_kugi_id ON daftar_data(kugi_id);
@@ -79,24 +87,29 @@ ALTER TABLE master_opd ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_kugi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cache_layer_geoportal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daftar_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pengaturan_tahun ENABLE ROW LEVEL SECURITY;
 
 -- Allow public read access (adjust policies as needed for auth/role management)
 CREATE POLICY "Allow public read access on master_opd" ON master_opd FOR SELECT USING (true);
 CREATE POLICY "Allow public read access on master_kugi" ON master_kugi FOR SELECT USING (true);
 CREATE POLICY "Allow public read access on cache_layer_geoportal" ON cache_layer_geoportal FOR SELECT USING (true);
 CREATE POLICY "Allow public read access on daftar_data" ON daftar_data FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on pengaturan_tahun" ON pengaturan_tahun FOR SELECT USING (true);
 
--- Allow all actions for prototyping / sync scripts
-CREATE POLICY "Allow public insert on master_opd" ON master_opd FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update on master_opd" ON master_opd FOR UPDATE USING (true);
+-- Tulis (insert/update/delete) hanya untuk user yang login (lihat migrations/OPSIONAL_rls_hanya_user_login.sql)
+CREATE POLICY "Authenticated insert on master_opd" ON master_opd FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated update on master_opd" ON master_opd FOR UPDATE TO authenticated USING (true);
 
-CREATE POLICY "Allow public insert on master_kugi" ON master_kugi FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update on master_kugi" ON master_kugi FOR UPDATE USING (true);
+CREATE POLICY "Authenticated insert on master_kugi" ON master_kugi FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated update on master_kugi" ON master_kugi FOR UPDATE TO authenticated USING (true);
 
-CREATE POLICY "Allow public insert on cache_layer_geoportal" ON cache_layer_geoportal FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update on cache_layer_geoportal" ON cache_layer_geoportal FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete on cache_layer_geoportal" ON cache_layer_geoportal FOR DELETE USING (true);
+CREATE POLICY "Authenticated insert on cache_layer_geoportal" ON cache_layer_geoportal FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated update on cache_layer_geoportal" ON cache_layer_geoportal FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "Authenticated delete on cache_layer_geoportal" ON cache_layer_geoportal FOR DELETE TO authenticated USING (true);
 
-CREATE POLICY "Allow public insert on daftar_data" ON daftar_data FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update on daftar_data" ON daftar_data FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete on daftar_data" ON daftar_data FOR DELETE USING (true);
+CREATE POLICY "Authenticated insert on daftar_data" ON daftar_data FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated update on daftar_data" ON daftar_data FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "Authenticated delete on daftar_data" ON daftar_data FOR DELETE TO authenticated USING (true);
+
+CREATE POLICY "Authenticated insert on pengaturan_tahun" ON pengaturan_tahun FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated delete on pengaturan_tahun" ON pengaturan_tahun FOR DELETE TO authenticated USING (true);

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { fetchWithTimeout } from "@/lib/supabase/fetch-timeout";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -24,6 +25,8 @@ export async function updateSession(request: NextRequest) {
           );
         },
       },
+      // Jangan biarkan halaman menggantung bila Supabase tidak menjawab (mis. proyek di-pause).
+      global: { fetch: fetchWithTimeout(5_000) },
     }
   );
 

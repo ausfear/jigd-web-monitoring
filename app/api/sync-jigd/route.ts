@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured, fetchAllRows } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +18,62 @@ interface GeoNodeDataset {
   [key: string]: unknown;
 }
 
+interface GeoNodeOwner {
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
 interface ParsedGeometryInfo {
   geometry: string;
   attrCount: number;
+}
+
+const GEONODE_BASE_URL = "https://jigd.kaltimprov.go.id";
+const GEONODE_PAGE_SIZE = 1000;
+const GEONODE_MAX_PAGES = 50;
+
+/**
+ * Ambil seluruh objek dari endpoint daftar GeoNode (format Tastypie: `meta` + `objects`)
+ * halaman demi halaman (limit/offset) sampai `meta.total_count` terpenuhi, sehingga
+ * tidak ada batas 1.000 dataset. `totalCount` bernilai null bila GeoNode tidak melaporkannya.
+ */
+async function fetchAllGeoNode<T>(
+  path: string,
+  timeoutMs?: number
+): Promise<{ objects: T[]; totalCount: number | null }> {
+  const objects: T[] = [];
+  let totalCount: number | null = null;
+
+  for (let page = 0, offset = 0; page < GEONODE_MAX_PAGES; page++) {
+    const res = await fetch(
+      `${GEONODE_BASE_URL}${path}?limit=${GEONODE_PAGE_SIZE}&offset=${offset}`,
+      {
+        headers: { Accept: "application/json", "User-Agent": "JIGD-Web-Monitoring/1.0" },
+        signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
+        next: { revalidate: 0 },
+      }
+    );
+    if (!res.ok) {
+      throw new Error(`GeoNode API responded with HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const json = await res.json();
+    const pageObjects: T[] = json.objects || [];
+    objects.push(...pageObjects);
+
+    const total = Number(json.meta?.total_count ?? json.total);
+    if (Number.isFinite(total)) totalCount = total;
+
+    // GeoNode bisa membatasi limit di bawah yang diminta, jadi offset maju sebanyak data yang diterima.
+    offset += pageObjects.length;
+    const reachedEnd =
+      pageObjects.length === 0 ||
+      (totalCount !== null ? objects.length >= totalCount : pageObjects.length < GEONODE_PAGE_SIZE);
+    if (reachedEnd) break;
+  }
+
+  return { objects, totalCount };
 }
 
 /**
@@ -141,12 +194,20 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const forceRefresh = searchParams.get("force") === "true";
-    const customLimit = searchParams.get("limit") || "1000";
 
     // 1. Fetch current cache from Supabase to prevent redundant GeoServer calls
-    const { data: existingCache, error: cacheErr } = await supabase
-      .from("cache_layer_geoportal")
-      .select("id_dataset, last_updated, geometry_type, attribute_count");
+    const { data: existingCache, error: cacheErr } = await fetchAllRows<{
+      id_dataset: string;
+      last_updated: string | null;
+      geometry_type: string | null;
+      attribute_count: number | null;
+    }>((from, to) =>
+      supabase
+        .from("cache_layer_geoportal")
+        .select("id_dataset, last_updated, geometry_type, attribute_count")
+        .order("id_dataset", { ascending: true })
+        .range(from, to)
+    );
 
     if (cacheErr) {
       console.error("[Sync JIGD] Error reading cache_layer_geoportal:", cacheErr);
@@ -169,28 +230,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Fetch all datasets from GeoNode API
-    const geoNodeUrl = `https://jigd.kaltimprov.go.id/api/datasets/?limit=${customLimit}`;
-    const datasetsResp = await fetch(geoNodeUrl, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "JIGD-Web-Monitoring/1.0",
-      },
-      next: { revalidate: 0 },
-    });
-
-    if (!datasetsResp.ok) {
+    // 2. Fetch all datasets from GeoNode API (paginated)
+    let datasets: GeoNodeDataset[];
+    let totalCount: number | null;
+    try {
+      ({ objects: datasets, totalCount } = await fetchAllGeoNode<GeoNodeDataset>("/api/datasets/"));
+    } catch (err) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `GeoNode API responded with HTTP ${datasetsResp.status}: ${datasetsResp.statusText}`,
-        },
+        { success: false, error: err instanceof Error ? err.message : "Gagal mengambil data GeoNode" },
         { status: 502 }
       );
     }
-
-    const datasetsJson = await datasetsResp.json();
-    const datasets: GeoNodeDataset[] = datasetsJson.objects || [];
 
     if (!datasets.length) {
       return NextResponse.json({
@@ -301,9 +351,8 @@ export async function GET(request: NextRequest) {
     // 6b. Remove cached layers that no longer exist on GeoNode (deleted / re-uploaded).
     // Only when the GeoNode list is complete, so a truncated response never wipes the cache.
     let removedCount = 0;
-    const totalCount = Number(datasetsJson.meta?.total_count ?? datasetsJson.total ?? NaN);
-    const isCompleteList = Number.isFinite(totalCount) && datasets.length >= totalCount;
-    if (isCompleteList && existingCache) {
+    const isCompleteList = totalCount !== null && datasets.length >= totalCount;
+    if (isCompleteList && !cacheErr) {
       const liveIds = new Set(datasets.map((ds) => String(ds.id)));
       const staleIds = existingCache
         .map((item) => String(item.id_dataset))
@@ -339,18 +388,11 @@ export async function GET(request: NextRequest) {
 
     // Also attempt to enrich with GeoNode /api/owners/ endpoint
     try {
-      const ownersResp = await fetch("https://jigd.kaltimprov.go.id/api/owners/?limit=1000", {
-        headers: { Accept: "application/json", "User-Agent": "JIGD-Web-Monitoring/1.0" },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (ownersResp.ok) {
-        const ownersJson = await ownersResp.json();
-        const owners = ownersJson.objects || [];
-        for (const o of owners) {
-          if (o.username && !opdMap.has(o.username)) {
-            const fullName = [o.first_name, o.last_name].filter(Boolean).join(" ").trim();
-            opdMap.set(o.username, fullName || o.username);
-          }
+      const { objects: owners } = await fetchAllGeoNode<GeoNodeOwner>("/api/owners/", 6000);
+      for (const o of owners) {
+        if (o.username && !opdMap.has(o.username)) {
+          const fullName = [o.first_name, o.last_name].filter(Boolean).join(" ").trim();
+          opdMap.set(o.username, fullName || o.username);
         }
       }
     } catch (e) {
@@ -362,13 +404,31 @@ export async function GET(request: NextRequest) {
       nama_opd: nama_opd || username_jigd,
     }));
 
-    if (opdRows.length > 0) {
-      const { error: opdErr } = await supabase
-        .from("master_opd")
-        .upsert(opdRows, { onConflict: "username_jigd" });
+    // Hanya OPD baru yang ditambahkan. OPD yang sudah ada tidak diubah, supaya nama OPD
+    // yang sudah dirapikan manual di database tidak tertimpa nama dari GeoNode.
+    let newOpdCount = 0;
+    const { data: existingOpds, error: existingOpdErr } = await supabase
+      .from("master_opd")
+      .select("username_jigd");
 
-      if (opdErr) {
-        console.error("[Sync JIGD] Error upserting master_opd:", opdErr);
+    if (existingOpdErr) {
+      console.error("[Sync JIGD] Error reading master_opd:", existingOpdErr);
+    } else {
+      const knownUsernames = new Set(
+        (existingOpds || []).map((o) => String(o.username_jigd || "").toLowerCase())
+      );
+      const newOpdRows = opdRows.filter((o) => !knownUsernames.has(o.username_jigd.toLowerCase()));
+
+      if (newOpdRows.length > 0) {
+        const { error: opdErr } = await supabase
+          .from("master_opd")
+          .upsert(newOpdRows, { onConflict: "username_jigd", ignoreDuplicates: true });
+
+        if (opdErr) {
+          console.error("[Sync JIGD] Error inserting new master_opd rows:", opdErr);
+        } else {
+          newOpdCount = newOpdRows.length;
+        }
       }
     }
 
@@ -376,6 +436,7 @@ export async function GET(request: NextRequest) {
       success: true,
       synced_count: recordsToUpsert.length,
       opd_count: opdRows.length,
+      new_opd_count: newOpdCount,
       removed_count: removedCount,
       queried_layers: layersToQuery.length,
       cached_layers: datasets.length - layersToQuery.length,

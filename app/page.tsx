@@ -1,19 +1,15 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { 
-  Building2, 
-  CheckCircle2, 
-  ArrowRight, 
-  Layers, 
-  FileCheck2, 
+import {
+  Building2,
+  ArrowRight,
+  Layers,
   ExternalLink,
   ShieldCheck,
   Compass,
-  Map,
-  BookOpen
 } from "lucide-react";
 
 export default function Home() {

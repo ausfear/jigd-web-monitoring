@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { DbErrorBanner } from "@/components/db-error-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,6 @@ import {
   Database,
   RefreshCw,
   Building2,
-  Globe2,
   Search,
   ExternalLink,
   Layers,
@@ -43,14 +43,65 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  Filter
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
+import { fetchTahunAktif, TAHUN_DEFAULT } from "@/lib/tahun";
 import { DaftarData, MasterOpd, MasterKugi, CacheLayerGeoportal } from "@/types/database";
 import { ManualAddDialog } from "@/components/dashboard/manual-add-dialog";
 import { CsvUploadDialog } from "@/components/dashboard/csv-upload-dialog";
 import { MergeDataDialog } from "@/components/dashboard/merge-data-dialog";
 import { VerificationEditDialog } from "@/components/dashboard/verification-edit-dialog";
+import { YearSettingsDialog } from "@/components/dashboard/year-settings-dialog";
+
+/**
+ * Ambil seluruh data dashboard dari Supabase secara paralel (tabel besar diambil per 1.000 baris).
+ * Sengaja di luar komponen: fungsi ini tidak menyentuh state React.
+ */
+async function loadDashboardData() {
+  const [opd, layers, kugi, daftar, tahun] = await Promise.all([
+    supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
+    fetchAllRows<CacheLayerGeoportal>((from, to) =>
+      supabase
+        .from("cache_layer_geoportal")
+        .select("*")
+        .order("date_published", { ascending: false })
+        .order("id_dataset", { ascending: true })
+        .range(from, to)
+    ),
+    // Master KUGI (optimized payload)
+    fetchAllRows<MasterKugi>((from, to) =>
+      supabase
+        .from("master_kugi")
+        .select("id, nama_unsur, kode_unsur, katalog_unsur, definisi")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    // Daftar Data with full joined relations
+    fetchAllRows<DaftarData>((from, to) =>
+      supabase
+        .from("daftar_data")
+        .select(`
+          *,
+          master_opd:opd_id ( id, nama_opd, username_jigd ),
+          master_kugi:kugi_id ( id, nama_unsur, kode_unsur, katalog_unsur, definisi, instansi_terkait )
+        `)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    fetchTahunAktif(),
+  ]);
+
+  // Sort by spreadsheet order (urutan) first; rows without urutan go last, newest first.
+  const sortedDaftar = [...daftar.data].sort((a, b) => {
+    const ua = a.urutan ?? Number.POSITIVE_INFINITY;
+    const ub = b.urutan ?? Number.POSITIVE_INFINITY;
+    if (ua !== ub) return ua - ub;
+    return (b.created_at || "").localeCompare(a.created_at || "");
+  });
+
+  return { opd, layers, kugi, daftar: { ...daftar, data: sortedDaftar }, tahun };
+}
 
 function DashboardContent() {
   const router = useRouter();
@@ -63,110 +114,80 @@ function DashboardContent() {
   const [opdList, setOpdList] = useState<MasterOpd[]>([]);
   const [cachedLayers, setCachedLayers] = useState<CacheLayerGeoportal[]>([]);
   const [kugiList, setKugiList] = useState<MasterKugi[]>([]);
+  const [tahunAktif, setTahunAktif] = useState<number[]>(TAHUN_DEFAULT);
 
   // UI & Loading States
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // Filters & Search
   const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedOpd, setSelectedOpd] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
+  // Filter OPD mengikuti parameter URL ?opd= (username_jigd atau id OPD)
+  const selectedOpd = useMemo(() => {
+    if (!opdParam) return "all";
+    const matched = opdList.find(
+      (o) =>
+        o.username_jigd?.toLowerCase() === opdParam.toLowerCase() ||
+        o.id === opdParam
+    );
+    return matched ? matched.username_jigd?.toLowerCase() || matched.id : "all";
+  }, [opdParam, opdList]);
+
+  // Kembali ke halaman 1 setiap kali filter atau ukuran halaman berubah
+  const filterKey = `${selectedYear}|${selectedOpd}|${searchQuery}|${pageSize}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
+    setCurrentPage(1);
+  }
+
   // Dialog States
   const [editingRecord, setEditingRecord] = useState<DaftarData | null>(null);
   const [mergingRecord, setMergingRecord] = useState<DaftarData | null>(null);
 
   /**
-   * Fetch all database records from Supabase
+   * Fetch all database records from Supabase.
+   * Tidak menyalakan spinner: pemuatan pertama sudah diawali isLoading = true,
+   * dan muat ulang setelah edit/sinkronisasi cukup memperbarui tabel tanpa berkedip.
    */
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const fetchData = useCallback(
+    () =>
+      loadDashboardData()
+        .then(({ opd, layers, kugi, daftar, tahun }) => {
+          if (opd.error) console.error("Error fetching master_opd:", opd.error);
+          else setOpdList(opd.data ?? []);
 
-      // 1. Fetch Master OPD
-      const { data: opdData, error: opdErr } = await supabase
-        .from("master_opd")
-        .select("*")
-        .order("nama_opd", { ascending: true });
-      if (opdErr) console.error("Error fetching master_opd:", opdErr);
-      else if (opdData) setOpdList(opdData);
+          if (layers.error) console.error("Error fetching cache_layer_geoportal:", layers.error);
+          else setCachedLayers(layers.data);
 
-      // 2. Fetch Cached Layers
-      const { data: layerData, error: layerErr } = await supabase
-        .from("cache_layer_geoportal")
-        .select("*")
-        .order("date_published", { ascending: false });
-      if (layerErr) console.error("Error fetching cache_layer_geoportal:", layerErr);
-      else if (layerData) setCachedLayers(layerData);
+          if (kugi.error) console.error("Error fetching master_kugi:", kugi.error);
+          else setKugiList(kugi.data);
 
-      // 3. Fetch Master KUGI (optimized payload, bypass 1000-row limit)
-      const { data: kugiData, error: kugiErr } = await supabase
-        .from("master_kugi")
-        .select("id, nama_unsur, kode_unsur, katalog_unsur, definisi")
-        .limit(10000);
-      if (kugiErr) console.error("Error fetching master_kugi:", kugiErr);
-      else if (kugiData) setKugiList(kugiData as MasterKugi[]);
+          if (daftar.error) console.error("Error fetching daftar_data:", daftar.error);
+          else setDataList(daftar.data);
 
-      // 4. Fetch Daftar Data with full joined relations
-      const { data: daftarRows, error: daftarErr } = await supabase
-        .from("daftar_data")
-        .select(`
-          *,
-          master_opd:opd_id ( id, nama_opd, username_jigd ),
-          master_kugi:kugi_id ( id, nama_unsur, kode_unsur, katalog_unsur, definisi, instansi_terkait )
-        `)
-        .order("created_at", { ascending: false });
-
-      if (daftarErr) {
-        console.error("Error fetching daftar_data:", daftarErr);
-      } else if (daftarRows) {
-        // Sort by spreadsheet order (urutan) first; rows without urutan go last, newest first.
-        // Done client-side so it still works before the urutan column migration is applied.
-        const sortedRows = [...(daftarRows as DaftarData[])].sort((a, b) => {
-          const ua = a.urutan ?? Number.POSITIVE_INFINITY;
-          const ub = b.urutan ?? Number.POSITIVE_INFINITY;
-          if (ua !== ub) return ua - ub;
-          return (b.created_at || "").localeCompare(a.created_at || "");
-        });
-        setDataList(sortedRows);
-      }
-    } catch (err) {
-      console.error("Error loading dashboard data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+          setTahunAktif(tahun);
+          setLoadError(opd.error || layers.error || kugi.error || daftar.error ? DB_UNREACHABLE_MESSAGE : null);
+        })
+        .catch((err) => {
+          console.error("Error loading dashboard data:", err);
+          setLoadError(DB_UNREACHABLE_MESSAGE);
+        })
+        .finally(() => setIsLoading(false)),
+    []
+  );
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // Handle URL search parameter ?opd=
-  useEffect(() => {
-    if (opdParam && opdList.length > 0) {
-      const matched = opdList.find(
-        (o) =>
-          o.username_jigd?.toLowerCase() === opdParam.toLowerCase() ||
-          o.id === opdParam
-      );
-      if (matched) {
-        setSelectedOpd(matched.username_jigd?.toLowerCase() || matched.id);
-      }
-    } else if (!opdParam) {
-      setSelectedOpd("all");
-    }
-  }, [opdParam, opdList]);
-
-  // Reset to page 1 whenever any filter or page size changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedYear, selectedOpd, searchQuery, pageSize]);
 
   /**
    * Trigger GeoNode Sync manually
@@ -182,6 +203,7 @@ function DashboardContent() {
       if (result.success) {
         setSyncStatus(
           `Berhasil sinkron: ${result.synced_count} layer, ${result.opd_count || 0} OPD terdata` +
+            (result.new_opd_count ? ` (${result.new_opd_count} OPD baru)` : "") +
             (result.removed_count ? `, ${result.removed_count} layer usang dihapus dari cache.` : ".")
         );
         await fetchData();
@@ -236,45 +258,45 @@ function DashboardContent() {
         {
           nama_data: "Peta Batas Administrasi Provinsi Kalimantan Timur",
           opd_id: findOpd("biropemotda").id,
-          tahun_berlaku: [2024, 2025, 2026],
-          status_keterisian: true,
+          tahun_berlaku: tahunAktif,
+          status_keterisian: Boolean(cachedLayers[0]?.uuid),
           layer_utama_uuid: cachedLayers[0]?.uuid || null,
           layer_pelengkap_uuids: [],
         },
         {
           nama_data: "Peta Batas Administrasi Kabupaten/Kota",
           opd_id: findOpd("biropemotda").id,
-          tahun_berlaku: [2024, 2025, 2026],
-          status_keterisian: true,
+          tahun_berlaku: tahunAktif,
+          status_keterisian: Boolean(cachedLayers[1]?.uuid),
           layer_utama_uuid: cachedLayers[1]?.uuid || null,
           layer_pelengkap_uuids: [],
         },
         {
           nama_data: "Peta Jaringan Jalan Kewenangan Provinsi",
           opd_id: findOpd("pupr").id,
-          tahun_berlaku: [2024, 2025],
-          status_keterisian: true,
+          tahun_berlaku: tahunAktif,
+          status_keterisian: Boolean(cachedLayers[2]?.uuid),
           layer_utama_uuid: cachedLayers[2]?.uuid || null,
           layer_pelengkap_uuids: [],
         },
         {
           nama_data: "Peta Sebaran Jembatan Kewenangan Provinsi",
           opd_id: findOpd("pupr").id,
-          tahun_berlaku: [2025, 2026],
+          tahun_berlaku: tahunAktif,
           status_keterisian: false,
           layer_pelengkap_uuids: [],
         },
         {
           nama_data: "Peta Kawasan Rawan Bencana Banjir dan Genangan",
           opd_id: findOpd("bpbd").id,
-          tahun_berlaku: [2024, 2025, 2026],
+          tahun_berlaku: tahunAktif,
           status_keterisian: false,
           layer_pelengkap_uuids: [],
         },
         {
           nama_data: "Peta Kawasan Hutan dan Konservasi",
           opd_id: findOpd("dishut").id,
-          tahun_berlaku: [2024, 2025],
+          tahun_berlaku: tahunAktif,
           status_keterisian: false,
           layer_pelengkap_uuids: [],
         },
@@ -316,16 +338,16 @@ function DashboardContent() {
     );
   }, [opdList, cachedLayers]);
 
-  // Dynamically extract all available years
+  // Pilihan filter tahun: tahun aktif ditambah tahun lain yang masih tercatat di data
   const availableYears = useMemo(() => {
-    const yearsSet = new Set<number>([2024, 2025, 2026]);
+    const yearsSet = new Set<number>(tahunAktif);
     dataList.forEach((d) => {
       if (Array.isArray(d.tahun_berlaku)) {
         d.tahun_berlaku.forEach((y) => yearsSet.add(y));
       }
     });
     return Array.from(yearsSet).sort((a, b) => b - a);
-  }, [dataList]);
+  }, [dataList, tahunAktif]);
 
   // Dynamically extract all unique tag_bidang values
   const availableTags = useMemo(() => {
@@ -388,13 +410,8 @@ function DashboardContent() {
   // Overview metrics calculations
   const totalDatasetsGeoportal = cachedLayers.length;
 
-  // Dynamically extract latest year (defaulting to 2026)
-  const latestYear = useMemo(() => {
-    if (availableYears.length > 0) {
-      return Math.max(...availableYears);
-    }
-    return 2026;
-  }, [availableYears]);
+  // Tahun aktif terbaru (Pengaturan Tahun)
+  const latestYear = Math.max(...tahunAktif);
 
   // Data for the latest year
   const latestYearData = useMemo(() => {
@@ -459,11 +476,15 @@ function DashboardContent() {
               {isSyncing ? "Sinkronisasi..." : "Sinkronisasi GeoNode"}
             </Button>
 
-            <CsvUploadDialog opdList={opdList} onSuccess={fetchData} />
+            <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} />
 
-            <ManualAddDialog opdList={opdList} kugiList={kugiList} onSuccess={fetchData} />
+            <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
+
+            <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
           </div>
         </div>
+
+        <DbErrorBanner message={loadError} />
 
         {/* Sync Status Banner */}
         {syncStatus && (
@@ -606,7 +627,6 @@ function DashboardContent() {
                   value={selectedOpd}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
-                    setSelectedOpd(selectedValue);
                     if (selectedValue === "all") {
                       router.replace(pathname, { scroll: false });
                     } else {
@@ -698,8 +718,8 @@ function DashboardContent() {
 
               {dataList.length === 0 && (
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <CsvUploadDialog opdList={opdList} onSuccess={fetchData} />
-                  <ManualAddDialog opdList={opdList} kugiList={kugiList} onSuccess={fetchData} />
+                  <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
+                  <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
                   <Button
                     variant="outline"
                     size="sm"
@@ -1003,9 +1023,15 @@ function DashboardContent() {
             <span>
               Keterangan: Integrasi layer diverifikasi langsung dengan database cache Geoportal Provinsi Kalimantan Timur.
             </span>
-            <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400 font-medium">
-              Supabase Status: Aktif &amp; Sinkron
-            </span>
+            {!isLoading && (
+              <span
+                className={`font-mono text-[11px] font-medium ${
+                  loadError ? "text-rose-600 dark:text-rose-400" : "text-blue-600 dark:text-blue-400"
+                }`}
+              >
+                Supabase Status: {loadError ? "Tidak Terhubung" : "Terhubung"}
+              </span>
+            )}
           </div>
         </section>
       </main>
@@ -1017,6 +1043,7 @@ function DashboardContent() {
         onClose={() => setEditingRecord(null)}
         allCachedLayers={cachedLayers}
         allKugi={kugiList}
+        tahunAktif={tahunAktif}
         availableTags={availableTags}
         onSuccess={fetchData}
       />
@@ -1027,6 +1054,7 @@ function DashboardContent() {
         isOpen={Boolean(mergingRecord)}
         onClose={() => setMergingRecord(null)}
         allRecords={dataList}
+        allCachedLayers={cachedLayers}
         onSuccess={fetchData}
       />
 

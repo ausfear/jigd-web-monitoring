@@ -1,0 +1,34 @@
+# Mencegah proyek Supabase (paket gratis) di-pause karena tidak ada aktivitas selama 7 hari.
+# Workflow ini membaca 1 baris dari tabel master_opd dua kali seminggu.
+#
+# Persiapan (sekali saja): GitHub repo > Settings > Secrets and variables > Actions > New repository secret
+#   SUPABASE_URL       = nilai NEXT_PUBLIC_SUPABASE_URL di .env.local
+#   SUPABASE_ANON_KEY  = nilai NEXT_PUBLIC_SUPABASE_ANON_KEY di .env.local
+# Uji manual: tab Actions > "Supabase Keep Alive" > Run workflow.
+
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    - cron: "0 1 * * 1,4" # Senin & Kamis, 01:00 UTC (08:00 WITA)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Secret SUPABASE_URL / SUPABASE_ANON_KEY belum diisi di pengaturan repo."
+            exit 1
+          fi
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/master_opd?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "HTTP $status"
+          [ "$status" = "200" ]

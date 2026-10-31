@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DbErrorBanner } from "@/components/db-error-banner";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,13 +27,25 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Filter,
   Loader2,
-  Hash,
-  Table2,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { CacheLayerGeoportal, MasterOpd } from "@/types/database";
+
+/** Ambil daftar OPD dan layer dari Supabase secara paralel (tidak menyentuh state React). */
+function loadDatasetsData() {
+  return Promise.all([
+    supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
+    fetchAllRows<CacheLayerGeoportal>((from, to) =>
+      supabase
+        .from("cache_layer_geoportal")
+        .select("*")
+        .order("date_published", { ascending: false })
+        .order("id_dataset", { ascending: true })
+        .range(from, to)
+    ),
+  ]);
+}
 
 function DatasetsContent() {
   const router = useRouter();
@@ -43,10 +56,10 @@ function DatasetsContent() {
   const [layers, setLayers] = useState<CacheLayerGeoportal[]>([]);
   const [opdList, setOpdList] = useState<MasterOpd[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOpdUsername, setSelectedOpdUsername] = useState("all");
   const [selectedGeometry, setSelectedGeometry] = useState("all");
 
   // Pagination
@@ -54,56 +67,45 @@ function DatasetsContent() {
   const [pageSize, setPageSize] = useState(10);
 
   // Fetch data
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const [opdRes, layersRes] = await Promise.all([
-        supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
-        supabase.from("cache_layer_geoportal").select("*").order("date_published", { ascending: false }),
-      ]);
-
-      if (opdRes.data) setOpdList(opdRes.data);
-      if (layersRes.data) setLayers(layersRes.data);
-    } catch (err) {
-      console.error("Error fetching datasets:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchData = useCallback(
+    () =>
+      loadDatasetsData()
+        .then(([opdRes, layersRes]) => {
+          if (opdRes.data) setOpdList(opdRes.data);
+          if (!layersRes.error) setLayers(layersRes.data);
+          setLoadError(opdRes.error || layersRes.error ? DB_UNREACHABLE_MESSAGE : null);
+        })
+        .catch((err) => {
+          console.error("Error fetching datasets:", err);
+          setLoadError(DB_UNREACHABLE_MESSAGE);
+        })
+        .finally(() => setIsLoading(false)),
+    []
+  );
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Sync ?opd= query parameter
-  useEffect(() => {
-    if (opdParam && (opdList.length > 0 || layers.length > 0)) {
-      const matchInOpd = opdList.find(
-        (o) =>
-          o.username_jigd?.toLowerCase() === opdParam.toLowerCase() ||
-          o.id === opdParam
-      );
-      if (matchInOpd && matchInOpd.username_jigd) {
-        setSelectedOpdUsername(matchInOpd.username_jigd.toLowerCase());
-      } else {
-        // Fallback check direct username match in layers
-        const directMatch = layers.find(
-          (l) => l.owner_username?.toLowerCase() === opdParam.toLowerCase()
-        );
-        if (directMatch) {
-          setSelectedOpdUsername(directMatch.owner_username.toLowerCase());
-        }
-      }
-    } else if (!opdParam) {
-      setSelectedOpdUsername("all");
-    }
+  // Filter OPD mengikuti parameter URL ?opd= (username_jigd OPD, id OPD, atau owner layer)
+  const selectedOpdUsername = useMemo(() => {
+    if (!opdParam) return "all";
+    const param = opdParam.toLowerCase();
+    const matchInOpd = opdList.find(
+      (o) => o.username_jigd?.toLowerCase() === param || o.id === opdParam
+    );
+    if (matchInOpd?.username_jigd) return matchInOpd.username_jigd.toLowerCase();
+    const directMatch = layers.find((l) => l.owner_username?.toLowerCase() === param);
+    return directMatch ? directMatch.owner_username.toLowerCase() : "all";
   }, [opdParam, opdList, layers]);
 
-  // Reset page when filters change
-  useEffect(() => {
+  // Kembali ke halaman 1 setiap kali filter atau ukuran halaman berubah
+  const filterKey = `${searchQuery}|${selectedOpdUsername}|${selectedGeometry}|${pageSize}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setCurrentPage(1);
-  }, [searchQuery, selectedOpdUsername, selectedGeometry, pageSize]);
+  }
 
   // Unique geometry types from cache
   const availableGeometries = useMemo(() => {
@@ -172,6 +174,7 @@ function DatasetsContent() {
       <Navbar currentPage="datasets" />
 
       <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
+        <DbErrorBanner message={loadError} />
         {/* Page Header */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
           <div>
@@ -229,7 +232,6 @@ function DatasetsContent() {
                   value={selectedOpdUsername}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
-                    setSelectedOpdUsername(selectedValue);
                     if (selectedValue === "all") {
                       router.replace(pathname, { scroll: false });
                     } else {
@@ -315,7 +317,6 @@ function DatasetsContent() {
                   size="sm"
                   onClick={() => {
                     setSearchQuery("");
-                    setSelectedOpdUsername("all");
                     setSelectedGeometry("all");
                     router.replace(pathname, { scroll: false });
                   }}

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { InstagramIcon, LinkedinIcon } from "@/components/icons/social-icons";
 
 export function Footer() {
