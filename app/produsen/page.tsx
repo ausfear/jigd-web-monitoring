@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
+import { useQueryParams, useDebouncedQueryText } from "@/lib/use-query-params";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -54,8 +57,47 @@ function loadProdusenData() {
   ]);
 }
 
-export default function ProdusenPage() {
+/** Teks "x dari y terisi", persentase, dan progress bar keterisian satu OPD. */
+function ProgressKeterisian({ filled, total, percent }: { filled: number; total: number; percent: number }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs font-medium">
+        <span className="text-slate-600 dark:text-slate-400 text-[11px]">
+          {filled} dari {total} terisi
+        </span>
+        <span
+          className={`font-bold text-[11px] ${
+            percent === 100
+              ? "text-emerald-600 dark:text-emerald-400"
+              : percent > 0
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          {percent}%
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+        <div
+          className={`h-full transition-all duration-300 rounded-full ${
+            percent === 100
+              ? "bg-emerald-500"
+              : percent > 0
+              ? "bg-blue-600"
+              : "bg-slate-300 dark:bg-slate-700"
+          }`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ProdusenContent() {
   const router = useRouter();
+  const { searchParams, setParams } = useQueryParams();
   const [opdList, setOpdList] = useState<MasterOpd[]>([]);
   const [dataList, setDataList] = useState<DaftarData[]>([]);
   const [cachedLayers, setCachedLayers] = useState<CacheLayerGeoportal[]>([]);
@@ -64,10 +106,10 @@ export default function ProdusenPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters (null = tahun aktif terbaru)
-  const [searchQuery, setSearchQuery] = useState("");
-  const [yearChoice, setYearChoice] = useState<string | null>(null);
-  const selectedYear = yearChoice ?? String(Math.max(...tahunAktif));
-  const [showActiveOnly, setShowActiveOnly] = useState<boolean>(true);
+  // Filter disimpan di URL: ?tahun=&q=&semua=1 (tanpa ?tahun = tahun aktif terbaru)
+  const [searchQuery, setSearchQuery] = useDebouncedQueryText("q", searchParams.get("q") ?? "", setParams);
+  const selectedYear = searchParams.get("tahun") ?? String(Math.max(...tahunAktif));
+  const showActiveOnly = searchParams.get("semua") !== "1";
 
   // Fetch data
   const fetchData = useCallback(
@@ -196,15 +238,12 @@ export default function ProdusenPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Link href="/dashboard">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium"
-              >
-                <FileCheck2 className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />
-                Verifikasi Data
-              </Button>
+            <Link
+              href="/dashboard"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium")}
+            >
+              <FileCheck2 className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />
+              Verifikasi Data
             </Link>
           </div>
         </div>
@@ -223,7 +262,7 @@ export default function ProdusenPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {activeOpdCount} OPD
+                {isLoading ? <Skeleton className="h-8 w-20" /> : `${activeOpdCount} OPD`}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                 OPD memiliki target data tahun {selectedYear === "all" ? "berlaku" : selectedYear}
@@ -243,7 +282,7 @@ export default function ProdusenPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {totalTargetAll}
+                {isLoading ? <Skeleton className="h-8 w-20" /> : totalTargetAll}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                 Total item daftar data geospasial
@@ -263,7 +302,7 @@ export default function ProdusenPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {avgPercent}%
+                {isLoading ? <Skeleton className="h-8 w-20" /> : `${avgPercent}%`}
               </div>
               <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
                 {totalFilledAll} dari {totalTargetAll} data terverifikasi
@@ -283,7 +322,7 @@ export default function ProdusenPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {completeOpdCount} OPD
+                {isLoading ? <Skeleton className="h-8 w-20" /> : `${completeOpdCount} OPD`}
               </div>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
                 Keterisian layer lengkap terhubung
@@ -325,7 +364,7 @@ export default function ProdusenPage() {
                 <select
                   id="filter-year-produsen"
                   value={selectedYear}
-                  onChange={(e) => setYearChoice(e.target.value)}
+                  onChange={(e) => setParams({ tahun: e.target.value })}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                 >
                   <option value="all">Semua Tahun</option>
@@ -342,7 +381,7 @@ export default function ProdusenPage() {
                 <input
                   type="checkbox"
                   checked={showActiveOnly}
-                  onChange={(e) => setShowActiveOnly(e.target.checked)}
+                  onChange={(e) => setParams({ semua: e.target.checked ? null : "1" })}
                   className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
                 />
                 <span className="whitespace-nowrap">Hanya tampilkan OPD ber-daftar data</span>
@@ -352,10 +391,7 @@ export default function ProdusenPage() {
 
           {/* Table */}
           {isLoading ? (
-            <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-500 dark:text-slate-400">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <p className="text-sm font-medium">Memuat data produsen...</p>
-            </div>
+            <SkeletonRows rows={10} />
           ) : filteredOpds.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-center px-4">
               <Building2 className="h-10 w-10 text-slate-300 dark:text-slate-700" />
@@ -381,12 +417,12 @@ export default function ProdusenPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
                   <TableRow className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <TableHead className="w-[50px] text-center font-bold">#</TableHead>
-                    <TableHead className="min-w-[280px] font-bold">Perangkat Daerah (OPD)</TableHead>
-                    <TableHead className="min-w-[130px] font-bold text-center">Total Daftar Data</TableHead>
-                    <TableHead className="min-w-[130px] font-bold text-center">Layer Terpublikasi</TableHead>
-                    <TableHead className="min-w-[220px] font-bold">Persentase Keterisian</TableHead>
-                    <TableHead className="w-[100px] text-center font-bold">Aksi</TableHead>
+                    <TableHead className="hidden sm:table-cell w-[50px] text-center font-bold">#</TableHead>
+                    <TableHead className="lg:min-w-[280px] font-bold">Perangkat Daerah (OPD)</TableHead>
+                    <TableHead className="hidden md:table-cell lg:min-w-[130px] font-bold text-center">Total Daftar Data</TableHead>
+                    <TableHead className="hidden md:table-cell lg:min-w-[130px] font-bold text-center">Layer Terpublikasi</TableHead>
+                    <TableHead className="hidden md:table-cell min-w-[160px] lg:min-w-[220px] font-bold">Persentase Keterisian</TableHead>
+                    <TableHead className="w-[60px] md:w-[100px] text-center font-bold">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -399,12 +435,12 @@ export default function ProdusenPage() {
                         className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 transition-colors"
                       >
                         {/* Index */}
-                        <TableCell className="text-center text-xs font-mono text-slate-400 dark:text-slate-500">
+                        <TableCell className="hidden sm:table-cell text-center text-xs font-mono text-slate-500 dark:text-slate-400">
                           {idx + 1}
                         </TableCell>
 
                         {/* OPD Name & Username */}
-                        <TableCell className="py-3">
+                        <TableCell className="py-3 whitespace-normal">
                           <div className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                             {opd.nama_opd}
                           </div>
@@ -416,18 +452,27 @@ export default function ProdusenPage() {
                               @{opd.username_jigd}
                             </Badge>
                           )}
+
+                          {/* Ringkasan untuk layar kecil (kolom lain disembunyikan) */}
+                          <div className="md:hidden mt-2.5 space-y-2">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              <strong className="text-slate-800 dark:text-slate-200">{opd.totalTarget}</strong> daftar data ·{" "}
+                              <strong className="text-blue-700 dark:text-blue-300">{opd.layerCount}</strong> layer terpublikasi
+                            </div>
+                            <ProgressKeterisian filled={opd.filledCount} total={opd.totalTarget} percent={opd.percent} />
+                          </div>
                         </TableCell>
 
                         {/* Total Daftar Data */}
-                        <TableCell className="text-center">
+                        <TableCell className="hidden md:table-cell text-center">
                           <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
                             {opd.totalTarget}
                           </span>
-                          <span className="text-[11px] text-slate-400 block">data</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block">data</span>
                         </TableCell>
 
                         {/* Total Layer Geoportal */}
-                        <TableCell className="text-center">
+                        <TableCell className="hidden md:table-cell text-center">
                           <Badge
                             variant="secondary"
                             className="text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50"
@@ -438,45 +483,14 @@ export default function ProdusenPage() {
                         </TableCell>
 
                         {/* Progress Keterisian */}
-                        <TableCell>
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs font-medium">
-                              <span className="text-slate-600 dark:text-slate-400 text-[11px]">
-                                {opd.filledCount} dari {opd.totalTarget} terisi
-                              </span>
-                              <span
-                                className={`font-bold text-[11px] ${
-                                  opd.percent === 100
-                                    ? "text-emerald-600 dark:text-emerald-400"
-                                    : opd.percent > 0
-                                    ? "text-blue-600 dark:text-blue-400"
-                                    : "text-slate-400"
-                                }`}
-                              >
-                                {opd.percent}%
-                              </span>
-                            </div>
-
-                            {/* Progress bar */}
-                            <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full transition-all duration-300 rounded-full ${
-                                  opd.percent === 100
-                                    ? "bg-emerald-500"
-                                    : opd.percent > 0
-                                    ? "bg-blue-600"
-                                    : "bg-slate-300 dark:bg-slate-700"
-                                }`}
-                                style={{ width: `${opd.percent}%` }}
-                              />
-                            </div>
-                          </div>
+                        <TableCell className="hidden md:table-cell">
+                          <ProgressKeterisian filled={opd.filledCount} total={opd.totalTarget} percent={opd.percent} />
                         </TableCell>
 
                         {/* Action Menu */}
-                        <TableCell className="text-center">
+                        <TableCell className="text-center align-top md:align-middle">
                           <DropdownMenu>
-                            <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <DropdownMenuTrigger aria-label={`Aksi untuk ${opd.nama_opd}`} className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                               <MoreHorizontal className="h-4 w-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
@@ -524,5 +538,19 @@ export default function ProdusenPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function ProdusenPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      }
+    >
+      <ProdusenContent />
+    </Suspense>
   );
 }

@@ -704,7 +704,7 @@ export function VerificationEditDialog({
                               />
                               <div className="flex flex-col flex-1 min-w-0">
                                 <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{layer.title}</span>
-                                <span className="text-[10px] text-slate-400 font-mono truncate">
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
                                   {layer.name} • {layer.geometry_type} • {layer.attribute_count || 0} atribut
                                 </span>
                               </div>
@@ -740,11 +740,11 @@ export function VerificationEditDialog({
                     <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       Layer Pelengkap ({layerPelengkapUuids.length} layer terpilih)
                     </label>
-                    <span className="text-[11px] text-slate-400 font-normal">Searchable Multi-Select</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Searchable Multi-Select</span>
                   </div>
 
                   {availablePelengkapLayers.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic p-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 italic p-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
                       Tidak ada layer lain milik @{opdUsername} untuk dijadikan pelengkap.
                     </p>
                   ) : (
@@ -793,7 +793,7 @@ export function VerificationEditDialog({
                                       />
                                       <div className="flex flex-col flex-1 min-w-0">
                                         <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{layer.title}</span>
-                                        <span className="text-[10px] text-slate-400 font-mono truncate">
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
                                           {layer.name} • {layer.geometry_type} • {layer.attribute_count || 0} atribut
                                         </span>
                                       </div>

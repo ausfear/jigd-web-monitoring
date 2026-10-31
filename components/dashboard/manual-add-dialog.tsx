@@ -173,7 +173,7 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
               className="text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 dark:text-slate-100 focus-visible:ring-blue-500"
               required
             />
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Tahun penganggaran atau keberlakuan data geospasial.
             </p>
           </div>

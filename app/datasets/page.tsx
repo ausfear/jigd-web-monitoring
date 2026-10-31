@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { useQueryParams, useDebouncedQueryText, readPageParam } from "@/lib/use-query-params";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,9 +49,7 @@ function loadDatasetsData() {
 }
 
 function DatasetsContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { searchParams, setParams } = useQueryParams();
   const opdParam = searchParams.get("opd");
 
   const [layers, setLayers] = useState<CacheLayerGeoportal[]>([]);
@@ -59,11 +58,11 @@ function DatasetsContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedGeometry, setSelectedGeometry] = useState("all");
+  // Filter disimpan di URL: ?opd=&geom=&q=&page=
+  const [searchQuery, setSearchQuery] = useDebouncedQueryText("q", searchParams.get("q") ?? "", setParams);
+  const selectedGeometry = searchParams.get("geom") ?? "all";
 
   // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   // Fetch data
@@ -98,14 +97,6 @@ function DatasetsContent() {
     const directMatch = layers.find((l) => l.owner_username?.toLowerCase() === param);
     return directMatch ? directMatch.owner_username.toLowerCase() : "all";
   }, [opdParam, opdList, layers]);
-
-  // Kembali ke halaman 1 setiap kali filter atau ukuran halaman berubah
-  const filterKey = `${searchQuery}|${selectedOpdUsername}|${selectedGeometry}|${pageSize}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (prevFilterKey !== filterKey) {
-    setPrevFilterKey(filterKey);
-    setCurrentPage(1);
-  }
 
   // Unique geometry types from cache
   const availableGeometries = useMemo(() => {
@@ -161,6 +152,8 @@ function DatasetsContent() {
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredLayers.length / pageSize));
+  const currentPage = Math.min(readPageParam(searchParams), totalPages);
+  const goToPage = (page: number) => setParams({ page: page <= 1 ? null : String(page) });
   const paginatedLayers = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredLayers.slice(start, start + pageSize);
@@ -232,11 +225,7 @@ function DatasetsContent() {
                   value={selectedOpdUsername}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
-                    if (selectedValue === "all") {
-                      router.replace(pathname, { scroll: false });
-                    } else {
-                      router.replace(`${pathname}?opd=${selectedValue}`, { scroll: false });
-                    }
+                    setParams({ opd: selectedValue === "all" ? null : selectedValue, page: null });
                   }}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer truncate text-left max-w-[200px]"
                 >
@@ -255,7 +244,7 @@ function DatasetsContent() {
                 <select
                   id="filter-geometry"
                   value={selectedGeometry}
-                  onChange={(e) => setSelectedGeometry(e.target.value)}
+                  onChange={(e) => setParams({ geom: e.target.value === "all" ? null : e.target.value, page: null })}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                 >
                   <option value="all">Semua Geometri</option>
@@ -286,7 +275,10 @@ function DatasetsContent() {
               <span className="text-[11px] text-slate-500">Baris per halaman:</span>
               <select
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  goToPage(1);
+                }}
                 className="h-7 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 outline-none"
               >
                 <option value={10}>10</option>
@@ -298,10 +290,7 @@ function DatasetsContent() {
 
           {/* Table Content */}
           {isLoading ? (
-            <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-500 dark:text-slate-400">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <p className="text-sm font-medium">Memuat katalog dataset layer...</p>
-            </div>
+            <SkeletonRows rows={10} />
           ) : paginatedLayers.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-center px-4">
               <Database className="h-10 w-10 text-slate-300 dark:text-slate-700" />
@@ -317,8 +306,7 @@ function DatasetsContent() {
                   size="sm"
                   onClick={() => {
                     setSearchQuery("");
-                    setSelectedGeometry("all");
-                    router.replace(pathname, { scroll: false });
+                    setParams({ q: null, opd: null, geom: null, page: null });
                   }}
                   className="text-xs"
                 >
@@ -331,12 +319,12 @@ function DatasetsContent() {
               <Table>
                 <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
                   <TableRow className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <TableHead className="w-[50px] text-center font-bold">#</TableHead>
-                    <TableHead className="min-w-[280px] font-bold">Title / Nama Layer</TableHead>
-                    <TableHead className="min-w-[200px] font-bold">Workspace / OPD</TableHead>
-                    <TableHead className="min-w-[140px] font-bold">Tipe Data</TableHead>
-                    <TableHead className="min-w-[120px] font-bold">SRID</TableHead>
-                    <TableHead className="w-[100px] text-center font-bold">Aksi</TableHead>
+                    <TableHead className="hidden sm:table-cell w-[50px] text-center font-bold">#</TableHead>
+                    <TableHead className="md:min-w-[280px] font-bold">Title / Nama Layer</TableHead>
+                    <TableHead className="hidden md:table-cell min-w-[200px] font-bold">Workspace / OPD</TableHead>
+                    <TableHead className="hidden lg:table-cell min-w-[140px] font-bold">Tipe Data</TableHead>
+                    <TableHead className="hidden lg:table-cell min-w-[120px] font-bold">SRID</TableHead>
+                    <TableHead className="w-[60px] md:w-[100px] text-center font-bold">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -346,21 +334,21 @@ function DatasetsContent() {
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 transition-colors"
                     >
                       {/* Row Index */}
-                      <TableCell className="text-center text-xs font-mono text-slate-400 dark:text-slate-500">
+                      <TableCell className="hidden sm:table-cell text-center text-xs font-mono text-slate-500 dark:text-slate-400">
                         {startIndex + idx}
                       </TableCell>
 
                       {/* Title & Name */}
-                      <TableCell className="py-3">
+                      <TableCell className="py-3 whitespace-normal">
                         <div className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-snug">
                           {layer.title || "Layer Tanpa Judul"}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <code className="font-mono text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                          <code className="font-mono text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded break-all">
                             {layer.name}
                           </code>
                           {layer.date_published && (
-                            <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
                               {new Date(layer.date_published).toLocaleDateString("id-ID", {
                                 year: "numeric",
@@ -370,10 +358,19 @@ function DatasetsContent() {
                             </span>
                           )}
                         </div>
+
+                        {/* Ringkasan untuk layar kecil (kolom lain disembunyikan) */}
+                        <div className="lg:hidden mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          {layer.owner_username && (
+                            <span className="md:hidden font-mono">@{layer.owner_username}</span>
+                          )}
+                          <span>{layer.geometry_type || "Tidak Terdeteksi"}</span>
+                          <span className="font-mono">{layer.srid || "-"}</span>
+                        </div>
                       </TableCell>
 
                       {/* Workspace / OPD */}
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell whitespace-normal">
                         <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
                           {layer.owner_name || "-"}
                         </div>
@@ -388,7 +385,7 @@ function DatasetsContent() {
                       </TableCell>
 
                       {/* Geometry Type */}
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <Badge
                           variant="outline"
                           className="text-xs font-medium border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300"
@@ -397,25 +394,25 @@ function DatasetsContent() {
                           {layer.geometry_type || "Tidak Terdeteksi"}
                         </Badge>
                         {layer.attribute_count !== undefined && layer.attribute_count !== null && (
-                          <div className="text-[11px] text-slate-400 mt-1">
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                             {layer.attribute_count} atribut
                           </div>
                         )}
                       </TableCell>
 
                       {/* SRID */}
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <Badge
                           variant="secondary"
                           className="font-mono text-[11px] bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50"
                         >
                           <Globe2 className="h-3 w-3 mr-1 text-blue-600 dark:text-blue-400" />
-                          {layer.srid || "EPSG:4326"}
+                          {layer.srid || "-"}
                         </Badge>
                       </TableCell>
 
                       {/* Action */}
-                      <TableCell className="text-center">
+                      <TableCell className="text-center align-top md:align-middle">
                         {layer.dataset_url ? (
                           <a
                             href={layer.dataset_url}
@@ -423,11 +420,12 @@ function DatasetsContent() {
                             rel="noopener noreferrer"
                             className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
                             title="Buka layer di Geoportal JIGD"
+                            aria-label={`Buka ${layer.title || layer.name} di Geoportal JIGD`}
                           >
                             <ExternalLink className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                           </a>
                         ) : (
-                          <span className="text-xs text-slate-400">-</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">-</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -449,7 +447,7 @@ function DatasetsContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800"
                 >
@@ -464,7 +462,7 @@ function DatasetsContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800"
                 >

@@ -9,7 +9,7 @@ export function Footer() {
           <p className="font-semibold text-slate-700 dark:text-slate-300">
             Jaringan Informasi Geospasial Daerah (JIGD)
           </p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             Pemerintah Provinsi Kalimantan Timur
           </p>
         </div>

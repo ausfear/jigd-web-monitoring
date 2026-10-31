@@ -7,7 +7,8 @@ import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Database,
   Building2,
@@ -17,7 +18,6 @@ import {
   Globe2,
   TrendingUp,
   ArrowUpRight,
-  Loader2,
   FileCheck2,
 } from "lucide-react";
 import {
@@ -31,11 +31,13 @@ import {
   PieChart,
   Pie,
   Legend,
+  LabelList,
 } from "recharts";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { fetchTahunAktif, formatDaftarTahun, TAHUN_DEFAULT } from "@/lib/tahun";
 import { useMounted } from "@/lib/use-mounted";
-import { CacheLayerGeoportal, MasterOpd, DaftarData } from "@/types/database";
+import { CacheLayerGeoportal, DaftarData } from "@/types/database";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const GEOMETRY_COLORS = [
   "#2563eb", // blue-600
@@ -61,7 +63,6 @@ function loadOverviewData() {
     fetchAllRows<CacheLayerGeoportal>((from, to) =>
       supabase.from("cache_layer_geoportal").select("*").order("id_dataset").range(from, to)
     ),
-    supabase.from("master_opd").select("*"),
     fetchAllRows<DaftarData>((from, to) =>
       supabase.from("daftar_data").select("*").order("id").range(from, to)
     ),
@@ -72,7 +73,6 @@ function loadOverviewData() {
 export default function OverviewPage() {
   const isMounted = useMounted();
   const [layers, setLayers] = useState<CacheLayerGeoportal[]>([]);
-  const [opds, setOpds] = useState<MasterOpd[]>([]);
   const [daftarData, setDaftarData] = useState<DaftarData[]>([]);
   const [tahunAktif, setTahunAktif] = useState<number[]>(TAHUN_DEFAULT);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,12 +81,11 @@ export default function OverviewPage() {
   const fetchData = useCallback(
     () =>
       loadOverviewData()
-        .then(([layersRes, opdsRes, daftarRes, tahun]) => {
+        .then(([layersRes, daftarRes, tahun]) => {
           if (!layersRes.error) setLayers(layersRes.data);
-          if (opdsRes.data) setOpds(opdsRes.data);
           if (!daftarRes.error) setDaftarData(daftarRes.data);
           setTahunAktif(tahun);
-          setLoadError(layersRes.error || opdsRes.error || daftarRes.error ? DB_UNREACHABLE_MESSAGE : null);
+          setLoadError(layersRes.error || daftarRes.error ? DB_UNREACHABLE_MESSAGE : null);
         })
         .catch((err) => {
           console.error("Error loading overview analytics:", err);
@@ -102,7 +101,11 @@ export default function OverviewPage() {
 
   // Overall KPIs
   const totalLayers = layers.length;
-  const totalOpds = opds.length;
+  // OPD yang memiliki minimal satu daftar data (sama dengan definisi di halaman Produsen)
+  const totalOpds = useMemo(
+    () => new Set(daftarData.map((d) => d.opd_id).filter(Boolean)).size,
+    [daftarData]
+  );
   const totalDaftar = daftarData.length;
 
   const totalFilled = useMemo(() => {
@@ -189,24 +192,19 @@ export default function OverviewPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Link href="/produsen">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium"
-              >
-                <Building2 className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />
-                Daftar OPD
-              </Button>
+            <Link
+              href="/produsen"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium")}
+            >
+              <Building2 className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />
+              Daftar OPD
             </Link>
-            <Link href="/dashboard">
-              <Button
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-2xs"
-              >
-                <FileCheck2 className="h-4 w-4 mr-1.5" />
-                Verifikasi Layer
-              </Button>
+            <Link
+              href="/dashboard"
+              className={cn(buttonVariants({ size: "sm" }), "bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-2xs")}
+            >
+              <FileCheck2 className="h-4 w-4 mr-1.5" />
+              Verifikasi Layer
             </Link>
           </div>
         </div>
@@ -225,10 +223,10 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {totalOpds}
+                {isLoading ? <Skeleton className="h-8 w-16" /> : totalOpds}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium flex items-center justify-between">
-                <span>Perangkat Daerah aktif</span>
+                <span>OPD memiliki daftar data</span>
                 <Link href="/produsen" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center">
                   Detail <ArrowUpRight className="h-3 w-3 ml-0.5" />
                 </Link>
@@ -248,7 +246,7 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {totalLayers}
+                {isLoading ? <Skeleton className="h-8 w-16" /> : totalLayers}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium flex items-center justify-between">
                 <span>Layer terpublikasi GeoNode</span>
@@ -271,7 +269,7 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {totalDaftar}
+                {isLoading ? <Skeleton className="h-8 w-16" /> : totalDaftar}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                 {totalKugi} data ({overallKugiPercent}%) berstandar KUGI
@@ -291,7 +289,7 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                {overallFilledPercent}%
+                {isLoading ? <Skeleton className="h-8 w-16" /> : `${overallFilledPercent}%`}
               </div>
               <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
                 {totalFilled} dari {totalDaftar} target data terisi
@@ -323,11 +321,16 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent className="pt-6">
               {isLoading || !isMounted ? (
-                <div className="h-[280px] flex items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                <div className="h-[280px] flex flex-col justify-center gap-5 px-4" aria-label="Memuat grafik">
+                  {[85, 40, 15, 5].map((w) => (
+                    <div key={w} className="flex items-center gap-3">
+                      <Skeleton className="h-3 w-14" />
+                      <Skeleton className="h-9" style={{ width: `${w}%` }} />
+                    </div>
+                  ))}
                 </div>
               ) : geometryData.length === 0 ? (
-                <div className="h-[280px] flex items-center justify-center text-xs text-slate-400">
+                <div className="h-[280px] flex items-center justify-center text-xs text-slate-500 dark:text-slate-400">
                   Tidak ada data layer untuk ditampilkan
                 </div>
               ) : (
@@ -336,7 +339,7 @@ export default function OverviewPage() {
                     <BarChart
                       data={geometryData}
                       layout="vertical"
-                      margin={{ top: 10, right: 30, left: 35, bottom: 5 }}
+                      margin={{ top: 10, right: 48, left: 35, bottom: 5 }}
                     >
                       <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} />
                       <YAxis
@@ -365,13 +368,14 @@ export default function OverviewPage() {
                           return null;
                         }}
                       />
-                      <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                      <Bar dataKey="count" radius={[0, 4, 4, 0]} minPointSize={4}>
                         {geometryData.map((entry, index) => (
                           <Cell
                             key={`cell-geo-${index}`}
                             fill={GEOMETRY_COLORS[index % GEOMETRY_COLORS.length]}
                           />
                         ))}
+                        <LabelList dataKey="count" position="right" fontSize={11} fontWeight={600} fill="#64748b" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -401,15 +405,20 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent className="pt-6">
               {isLoading || !isMounted ? (
-                <div className="h-[280px] flex items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                <div className="h-[280px] flex items-center justify-center" aria-label="Memuat grafik">
+                  <Skeleton className="h-[190px] w-[190px] rounded-full" />
                 </div>
               ) : sridData.length === 0 ? (
-                <div className="h-[280px] flex items-center justify-center text-xs text-slate-400">
+                <div className="h-[280px] flex items-center justify-center text-xs text-slate-500 dark:text-slate-400">
                   Tidak ada data SRID untuk ditampilkan
                 </div>
               ) : (
-                <div className="h-[280px] w-full flex flex-col sm:flex-row items-center justify-center">
+                <div className="relative h-[280px] w-full flex flex-col sm:flex-row items-center justify-center">
+                  {/* Total layer di tengah donut (area grafik = 280px dikurangi legenda 36px) */}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-[244px] flex flex-col items-center justify-center">
+                    <span className="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-none">{totalLayers}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">layer</span>
+                  </div>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -448,11 +457,16 @@ export default function OverviewPage() {
                       <Legend
                         verticalAlign="bottom"
                         height={36}
-                        formatter={(val) => (
-                          <span className="text-[11px] text-slate-600 dark:text-slate-400">
-                            {val}
-                          </span>
-                        )}
+                        formatter={(val) => {
+                          const item = sridData.find((d) => d.name === val);
+                          const pct = item && totalLayers > 0 ? Math.round((item.count / totalLayers) * 100) : null;
+                          return (
+                            <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                              {val}
+                              {pct !== null && <strong className="ml-1 text-slate-800 dark:text-slate-200">{pct}%</strong>}
+                            </span>
+                          );
+                        }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -476,7 +490,11 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              yearlyData.length >= 3 ? "md:grid-cols-3" : yearlyData.length === 2 ? "md:grid-cols-2" : ""
+            }`}
+          >
             {yearlyData.map((y) => {
               const pct = y.total > 0 ? Math.round((y.terisi / y.total) * 100) : 0;
 
@@ -493,7 +511,7 @@ export default function OverviewPage() {
                       variant="secondary"
                       className="font-semibold text-xs bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"
                     >
-                      {pct}% Terisi
+                      {y.total > 0 ? `${pct}% Terisi` : "Belum ada daftar data"}
                     </Badge>
                   </div>
 
@@ -510,7 +528,7 @@ export default function OverviewPage() {
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     Sisa data belum terisi: <strong className="text-slate-600 dark:text-slate-300">{y.belum}</strong>
                   </div>
                 </div>

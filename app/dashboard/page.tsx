@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,9 +43,11 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { fetchTahunAktif, TAHUN_DEFAULT } from "@/lib/tahun";
+import { useQueryParams, useDebouncedQueryText, readPageParam } from "@/lib/use-query-params";
 import { DaftarData, MasterOpd, MasterKugi, CacheLayerGeoportal } from "@/types/database";
 import { ManualAddDialog } from "@/components/dashboard/manual-add-dialog";
 import { CsvUploadDialog } from "@/components/dashboard/csv-upload-dialog";
@@ -103,10 +105,40 @@ async function loadDashboardData() {
   return { opd, layers, kugi, daftar: { ...daftar, data: sortedDaftar }, tahun };
 }
 
+/** Chip filter aktif. Nama OPD yang panjang turun ke baris berikutnya, bukan terpotong. */
+function FilterChip({
+  label,
+  value,
+  onRemove,
+  className,
+}: {
+  label: string;
+  value: string;
+  onRemove: () => void;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex max-w-full items-start gap-1 rounded-2xl py-1 pl-2.5 pr-1 text-[11px] font-medium leading-snug ${className ?? ""}`}
+    >
+      <span className="min-w-0 break-words">
+        {label}: {value}
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Hapus filter ${label}`}
+        title={`Hapus filter ${label}`}
+        className="shrink-0 rounded-full p-0.5 opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
 function DashboardContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { searchParams, setParams } = useQueryParams();
   const opdParam = searchParams.get("opd");
 
   // Database States
@@ -122,12 +154,11 @@ function DashboardContent() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
-  // Filters & Search
-  const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  // Filters & Search (disimpan di URL: ?opd=&tahun=&q=&page=)
+  const selectedYear = searchParams.get("tahun") ?? "all";
+  const [searchQuery, setSearchQuery] = useDebouncedQueryText("q", searchParams.get("q") ?? "", setParams);
 
   // Pagination States
-  const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
   // Filter OPD mengikuti parameter URL ?opd= (username_jigd atau id OPD)
@@ -140,14 +171,6 @@ function DashboardContent() {
     );
     return matched ? matched.username_jigd?.toLowerCase() || matched.id : "all";
   }, [opdParam, opdList]);
-
-  // Kembali ke halaman 1 setiap kali filter atau ukuran halaman berubah
-  const filterKey = `${selectedYear}|${selectedOpd}|${searchQuery}|${pageSize}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (prevFilterKey !== filterKey) {
-    setPrevFilterKey(filterKey);
-    setCurrentPage(1);
-  }
 
   // Dialog States
   const [editingRecord, setEditingRecord] = useState<DaftarData | null>(null);
@@ -399,6 +422,8 @@ function DashboardContent() {
 
   // Pagination Slicing
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const currentPage = Math.min(readPageParam(searchParams), totalPages);
+  const goToPage = (page: number) => setParams({ page: page <= 1 ? null : String(page) });
   const paginatedData = useMemo(() => {
     const startIdx = (currentPage - 1) * pageSize;
     return filteredData.slice(startIdx, startIdx + pageSize);
@@ -521,7 +546,7 @@ function DashboardContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {totalDatasetsGeoportal}
+                  {isLoading ? <Skeleton className="h-8 w-16" /> : totalDatasetsGeoportal}
                 </div>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
                   Layer aktif pada cache Geoportal
@@ -541,7 +566,7 @@ function DashboardContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {latestYearData.length}
+                  {isLoading ? <Skeleton className="h-8 w-16" /> : latestYearData.length}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                   Target data spasial tahun {latestYear}
@@ -561,7 +586,7 @@ function DashboardContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {latestYearFilled}
+                  {isLoading ? <Skeleton className="h-8 w-16" /> : latestYearFilled}
                 </div>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
                   {latestYearFilledPercent}% dari target tahun {latestYear}
@@ -581,7 +606,7 @@ function DashboardContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {latestYearKugiPercent}%
+                  {isLoading ? <Skeleton className="h-8 w-16" /> : `${latestYearKugiPercent}%`}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                   {latestYearKugiStandardized} dari {latestYearData.length} data berstandar KUGI
@@ -627,11 +652,7 @@ function DashboardContent() {
                   value={selectedOpd}
                   onChange={(e) => {
                     const selectedValue = e.target.value;
-                    if (selectedValue === "all") {
-                      router.replace(pathname, { scroll: false });
-                    } else {
-                      router.replace(`${pathname}?opd=${selectedValue}`, { scroll: false });
-                    }
+                    setParams({ opd: selectedValue === "all" ? null : selectedValue, page: null });
                   }}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer truncate text-left max-w-[200px]"
                 >
@@ -650,7 +671,7 @@ function DashboardContent() {
                 <select
                   id="filter-tahun"
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
+                  onChange={(e) => setParams({ tahun: e.target.value === "all" ? null : e.target.value, page: null })}
                   className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 pr-8 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                 >
                   <option value="all">Semua Tahun</option>
@@ -666,7 +687,7 @@ function DashboardContent() {
 
           {/* Table Summary Quick Bar */}
           <div className="px-5 py-2.5 bg-slate-50/70 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-600 dark:text-slate-400 gap-2">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
                 Total Ditemukan: <strong className="text-slate-900 dark:text-slate-100">{filteredData.length}</strong> data
               </span>
@@ -680,26 +701,30 @@ function DashboardContent() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Chip filter aktif: teks boleh turun baris (tidak terpotong), klik × untuk menghapus filter */}
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               {selectedOpd !== "all" && (
-                <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[11px] font-medium truncate max-w-[200px]">
-                  OPD: {opdList.find(o => o.id === selectedOpd || o.username_jigd?.toLowerCase() === selectedOpd.toLowerCase())?.nama_opd || "Terfilter"}
-                </Badge>
+                <FilterChip
+                  label="OPD"
+                  value={opdList.find(o => o.id === selectedOpd || o.username_jigd?.toLowerCase() === selectedOpd.toLowerCase())?.nama_opd || "Terfilter"}
+                  onRemove={() => setParams({ opd: null, page: null })}
+                  className="bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300"
+                />
               )}
               {selectedYear !== "all" && (
-                <Badge variant="secondary" className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-medium">
-                  Tahun: {selectedYear}
-                </Badge>
+                <FilterChip
+                  label="Tahun"
+                  value={selectedYear}
+                  onRemove={() => setParams({ tahun: null, page: null })}
+                  className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                />
               )}
             </div>
           </div>
 
           {/* Loading or Empty State */}
           {isLoading ? (
-            <div className="p-16 flex flex-col items-center justify-center text-slate-400 space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Memuat data dari Supabase...</p>
-            </div>
+            <SkeletonRows rows={8} />
           ) : filteredData.length === 0 ? (
             <div className="p-16 text-center space-y-4">
               <div className="h-14 w-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto">
@@ -739,23 +764,23 @@ function DashboardContent() {
                 <TableHeader className="bg-slate-50/80 dark:bg-slate-900/80">
                   <TableRow className="border-b border-slate-200 dark:border-slate-800 hover:bg-transparent">
                     {/* Column 1: Perangkat Daerah */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pl-5 min-w-[250px] whitespace-normal">
+                    <TableHead className="hidden lg:table-cell font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pl-5 min-w-[250px] whitespace-normal">
                       Perangkat Daerah
                     </TableHead>
                     {/* Column 2: Daftar Data Geospasial */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 min-w-[250px] whitespace-normal">
+                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pl-4 lg:pl-2 md:min-w-[250px] whitespace-normal">
                       Daftar Data Geospasial
                     </TableHead>
                     {/* Column 3: Standar KUGI */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 min-w-[180px] whitespace-normal">
+                    <TableHead className="hidden md:table-cell font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 min-w-[180px] whitespace-normal">
                       Standar KUGI
                     </TableHead>
                     {/* Column 4: Status */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 text-center min-w-[120px]">
+                    <TableHead className="hidden md:table-cell font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 text-center min-w-[120px]">
                       Status
                     </TableHead>
                     {/* Column 5: Aksi */}
-                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pr-5 text-right min-w-[100px]">
+                    <TableHead className="font-bold text-slate-800 dark:text-slate-200 text-xs py-3.5 pr-4 sm:pr-5 text-right md:min-w-[100px]">
                       Aksi
                     </TableHead>
                   </TableRow>
@@ -776,7 +801,7 @@ function DashboardContent() {
                         className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                       >
                         {/* 1. Perangkat Daerah: whitespace-normal break-words min-w-[250px] */}
-                        <TableCell className="py-3.5 pl-5 align-top whitespace-normal break-words min-w-[250px]">
+                        <TableCell className="hidden lg:table-cell py-3.5 pl-5 align-top whitespace-normal break-words min-w-[250px]">
                           <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
                             {item.master_opd?.nama_opd || "OPD Belum Terhubung"}
                           </div>
@@ -795,7 +820,18 @@ function DashboardContent() {
                         </TableCell>
 
                         {/* 2. Daftar Data Geospasial: whitespace-normal break-words min-w-[250px] */}
-                        <TableCell className="py-3.5 align-top whitespace-normal break-words min-w-[250px]">
+                        <TableCell className="py-3.5 pl-4 lg:pl-2 align-top whitespace-normal break-words md:min-w-[250px]">
+                          {/* OPD & tahun untuk layar < lg (kolom Perangkat Daerah disembunyikan) */}
+                          <div className="lg:hidden mb-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {item.master_opd?.nama_opd || "OPD Belum Terhubung"}
+                            </span>
+                            {(item.tahun_berlaku || []).map((th) => (
+                              <span key={th} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-medium px-1.5 py-0.5 rounded">
+                                {th}
+                              </span>
+                            ))}
+                          </div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-relaxed">
                               {item.nama_data}
@@ -825,7 +861,7 @@ function DashboardContent() {
                               </a>
                             </div>
                           ) : (
-                            <div className="text-[11px] text-slate-400 italic mt-0.5">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">
                               Belum ada layer terpaut
                             </div>
                           )}
@@ -842,7 +878,7 @@ function DashboardContent() {
                                   <li key={pLayer.uuid} className="text-[11px] text-slate-600 dark:text-slate-400">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="font-medium text-slate-700 dark:text-slate-300">{pLayer.title}</span>
-                                      <span className="text-[10px] font-mono text-slate-400">({pLayer.name})</span>
+                                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">({pLayer.name})</span>
                                       {pLayer.id_dataset && (
                                         <a
                                           href={`https://jigd.kaltimprov.go.id/catalogue/#/dataset/${pLayer.id_dataset}`}
@@ -860,10 +896,38 @@ function DashboardContent() {
                               </ul>
                             </details>
                           )}
+
+                          {/* KUGI & status untuk layar < md (kolomnya disembunyikan) */}
+                          <div className="md:hidden mt-2.5 flex flex-wrap items-center gap-2">
+                            {item.status_keterisian ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Terisi
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                <XCircle className="h-3 w-3" />
+                                Belum Terisi
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                              KUGI:{" "}
+                              {item.master_kugi?.nama_unsur || item.kugi_nama_unsur ? (
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  {item.master_kugi?.nama_unsur || item.kugi_nama_unsur}
+                                  {item.master_kugi?.kode_unsur && (
+                                    <span className="font-mono font-normal"> ({item.master_kugi.kode_unsur})</span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="italic">belum dipetakan</span>
+                              )}
+                            </span>
+                          </div>
                         </TableCell>
 
                         {/* 3. Standar KUGI: whitespace-normal break-words */}
-                        <TableCell className="py-3.5 align-top text-xs text-slate-700 dark:text-slate-300 whitespace-normal break-words min-w-[180px]">
+                        <TableCell className="hidden md:table-cell py-3.5 align-top text-xs text-slate-700 dark:text-slate-300 whitespace-normal break-words min-w-[180px]">
                           {item.master_kugi?.nama_unsur ? (
                             <div>
                               <Badge variant="secondary" className="font-semibold text-xs leading-normal py-0.5 px-2">
@@ -883,14 +947,14 @@ function DashboardContent() {
                               </span>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-slate-400 italic">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 italic">
                               Belum dipetakan
                             </span>
                           )}
                         </TableCell>
 
                         {/* 4. Status (Red / Green Badge) */}
-                        <TableCell className="py-3.5 align-top text-center">
+                        <TableCell className="hidden md:table-cell py-3.5 align-top text-center">
                           {item.status_keterisian ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -905,17 +969,18 @@ function DashboardContent() {
                         </TableCell>
 
                         {/* 5. Aksi: Action Menu (DropdownMenu with "Verifikasi Data" and "Merge dengan Data Lain") */}
-                        <TableCell className="py-3.5 pr-5 align-top text-right">
+                        <TableCell className="py-3.5 pr-4 sm:pr-5 align-top text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger
                               render={
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  aria-label={`Aksi untuk ${item.nama_data}`}
                                   className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                                 >
-                                  <span>Aksi</span>
-                                  <MoreHorizontal className="h-3.5 w-3.5 ml-1 text-slate-500 dark:text-slate-400" />
+                                  <span className="hidden sm:inline">Aksi</span>
+                                  <MoreHorizontal className="h-3.5 w-3.5 sm:ml-1 text-slate-500 dark:text-slate-400" />
                                 </Button>
                               }
                             />
@@ -969,13 +1034,16 @@ function DashboardContent() {
               </div>
 
               {/* Pagination controls & Page Size */}
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                 {/* Page Size Selector */}
                 <div className="flex items-center gap-1.5">
                   <span>Tampilkan:</span>
                   <select
                     value={pageSize}
-                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      goToPage(1);
+                    }}
                     className="h-8 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer"
                   >
                     <option value={10}>10</option>
@@ -991,7 +1059,7 @@ function DashboardContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-40"
                   >
@@ -1006,7 +1074,7 @@ function DashboardContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-40"
                   >

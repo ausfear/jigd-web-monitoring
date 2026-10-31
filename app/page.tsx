@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -39,30 +40,23 @@ export default function Home() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/dashboard">
-                <Button
-                  size="lg"
-                  className="h-12 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md shadow-blue-600/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <span>Buka Dashboard Monitoring</span>
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
+              <Link
+                href="/dashboard"
+                className={cn(buttonVariants({ size: "lg" }), "h-12 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md shadow-blue-600/20 transition-all hover:scale-[1.01] active:scale-[0.99]")}
+              >
+                <span>Buka Dashboard Monitoring</span>
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
 
               <a
                 href="https://jigd.kaltimprov.go.id/"
                 target="_blank"
                 rel="noopener noreferrer"
+                className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-12 px-7 rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium shadow-xs")}
               >
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-12 px-7 rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium shadow-xs"
-                >
-                  <Layers className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-400" />
-                  <span>Kunjungi Geoportal Kaltim</span>
-                  <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
-                </Button>
+                <Layers className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-400" />
+                <span>Kunjungi Geoportal Kaltim</span>
+                <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
               </a>
             </div>
 
@@ -149,13 +143,11 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <Link href="/dashboard">
-                    <Button
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
-                    >
-                      Buka Dashboard
-                    </Button>
+                  <Link
+                    href="/dashboard"
+                    className={cn(buttonVariants({ size: "sm" }), "bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs")}
+                  >
+                    Buka Dashboard
                   </Link>
                 </div>
               </div>
