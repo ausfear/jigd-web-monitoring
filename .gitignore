@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# keterisian
+Keterisian JIGD *.xlsx
+~$*.xlsx
+
+# backup data Supabase (berisi seluruh isi tabel)
+/backups/

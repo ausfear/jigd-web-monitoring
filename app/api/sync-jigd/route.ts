@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Allow up to 60s for serverless execution
@@ -122,6 +123,19 @@ export async function GET(request: NextRequest) {
           error: "Supabase environment variables are missing. Please verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
         },
         { status: 500 }
+      );
+    }
+
+    // Use the caller's session (cookies) so writes run as the logged-in user,
+    // and reject anonymous callers: the sync button only lives on the protected dashboard.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Sesi login diperlukan untuk menjalankan sinkronisasi." },
+        { status: 401 }
       );
     }
 
@@ -284,6 +298,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 6b. Remove cached layers that no longer exist on GeoNode (deleted / re-uploaded).
+    // Only when the GeoNode list is complete, so a truncated response never wipes the cache.
+    let removedCount = 0;
+    const totalCount = Number(datasetsJson.meta?.total_count ?? datasetsJson.total ?? NaN);
+    const isCompleteList = Number.isFinite(totalCount) && datasets.length >= totalCount;
+    if (isCompleteList && existingCache) {
+      const liveIds = new Set(datasets.map((ds) => String(ds.id)));
+      const staleIds = existingCache
+        .map((item) => String(item.id_dataset))
+        .filter((id) => id && !liveIds.has(id));
+
+      if (staleIds.length > 0) {
+        const { error: deleteErr } = await supabase
+          .from("cache_layer_geoportal")
+          .delete()
+          .in("id_dataset", staleIds);
+
+        if (deleteErr) {
+          console.error("[Sync JIGD] Error removing stale cached layers:", deleteErr);
+        } else {
+          removedCount = staleIds.length;
+        }
+      }
+    }
+
     // 7. Auto-Sync OPDs into master_opd table
     // Extract unique owner__username and owner_name from datasets
     const opdMap = new Map<string, string>();
@@ -337,6 +376,7 @@ export async function GET(request: NextRequest) {
       success: true,
       synced_count: recordsToUpsert.length,
       opd_count: opdRows.length,
+      removed_count: removedCount,
       queried_layers: layersToQuery.length,
       cached_layers: datasets.length - layersToQuery.length,
       timestamp: new Date().toISOString(),

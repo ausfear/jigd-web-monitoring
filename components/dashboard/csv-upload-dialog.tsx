@@ -125,12 +125,14 @@ export function CsvUploadDialog({ opdList, onSuccess, size = "sm", className }: 
         const headers = parseLine(lines[0]).map(h => h.toLowerCase());
 
         // Locate column indexes for Nama Data and Produsen Data
-        let nameIdx = headers.findIndex(h => 
-          h.includes("nama") || h.includes("data") || h.includes("dataset") || h.includes("judul")
+        const isProducerHeader = (h: string) =>
+          h.includes("produsen") || h.includes("opd") || h.includes("perangkat") || h.includes("walidata") || h.includes("instansi");
+        // Exclude producer headers so "Produsen Data" is not mistaken for the data-name column
+        let nameIdx = headers.findIndex(h =>
+          !isProducerHeader(h) &&
+          (h.includes("nama") || h.includes("data") || h.includes("dataset") || h.includes("judul"))
         );
-        let produsenIdx = headers.findIndex(h => 
-          h.includes("produsen") || h.includes("opd") || h.includes("perangkat") || h.includes("walidata") || h.includes("instansi")
-        );
+        let produsenIdx = headers.findIndex(isProducerHeader);
 
         // Fallback default: first column is name, second column is producer
         if (nameIdx === -1 && headers.length >= 1) nameIdx = 0;

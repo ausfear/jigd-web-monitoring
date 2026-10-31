@@ -126,7 +126,15 @@ function DashboardContent() {
       if (daftarErr) {
         console.error("Error fetching daftar_data:", daftarErr);
       } else if (daftarRows) {
-        setDataList(daftarRows as DaftarData[]);
+        // Sort by spreadsheet order (urutan) first; rows without urutan go last, newest first.
+        // Done client-side so it still works before the urutan column migration is applied.
+        const sortedRows = [...(daftarRows as DaftarData[])].sort((a, b) => {
+          const ua = a.urutan ?? Number.POSITIVE_INFINITY;
+          const ub = b.urutan ?? Number.POSITIVE_INFINITY;
+          if (ua !== ub) return ua - ub;
+          return (b.created_at || "").localeCompare(a.created_at || "");
+        });
+        setDataList(sortedRows);
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
@@ -172,7 +180,10 @@ function DashboardContent() {
       const result = await res.json();
 
       if (result.success) {
-        setSyncStatus(`Berhasil sinkron: ${result.synced_count} layer, ${result.opd_count || 0} OPD terdata.`);
+        setSyncStatus(
+          `Berhasil sinkron: ${result.synced_count} layer, ${result.opd_count || 0} OPD terdata` +
+            (result.removed_count ? `, ${result.removed_count} layer usang dihapus dari cache.` : ".")
+        );
         await fetchData();
         setTimeout(() => setSyncStatus(null), 6000);
       } else {

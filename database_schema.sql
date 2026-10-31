@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS daftar_data (
     kugi_id UUID REFERENCES master_kugi(id) ON DELETE SET NULL,
     kugi_nama_unsur TEXT,
     nama_data TEXT NOT NULL,
+    tag_bidang TEXT,
+    urutan INTEGER, -- urutan tampil sesuai spreadsheet Daftar Data (lihat migrations/)
     tahun_berlaku INTEGER[] DEFAULT '{}',
     layer_utama_uuid TEXT,
     layer_pelengkap_uuids TEXT[] DEFAULT '{}',
@@ -67,6 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_daftar_data_opd_id ON daftar_data(opd_id);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_kugi_id ON daftar_data(kugi_id);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_layer_utama_uuid ON daftar_data(layer_utama_uuid);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_status_keterisian ON daftar_data(status_keterisian);
+CREATE INDEX IF NOT EXISTS idx_daftar_data_urutan ON daftar_data(urutan);
 CREATE INDEX IF NOT EXISTS idx_cache_layer_uuid ON cache_layer_geoportal(uuid);
 CREATE INDEX IF NOT EXISTS idx_cache_layer_owner_username ON cache_layer_geoportal(owner_username);
 CREATE INDEX IF NOT EXISTS idx_master_opd_username_jigd ON master_opd(username_jigd);

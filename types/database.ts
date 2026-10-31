@@ -49,6 +49,8 @@ export interface DaftarData {
   layer_utama_uuid: string | null;
   layer_pelengkap_uuids: string[];
   status_keterisian: boolean;
+  // Display order following the official Daftar Data spreadsheet (null = appended, shown last)
+  urutan?: number | null;
   created_at: string;
 
   // Joined relations for queries and UI presentation

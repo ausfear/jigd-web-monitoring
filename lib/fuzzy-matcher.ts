@@ -26,6 +26,8 @@ export function calculateOpdMatchScore(rawQuery: string, opd: MasterOpd): number
   if (!rawQuery) return 0;
 
   const query = normalize(rawQuery);
+  // Punctuation-only input (e.g. "-") normalizes to "", which would match every OPD via includes("")
+  if (!query) return 0;
   const username = normalize(opd.username_jigd || "");
   const opdName = normalize(opd.nama_opd || "");
 

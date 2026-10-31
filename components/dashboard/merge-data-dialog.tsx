@@ -210,7 +210,7 @@ export function MergeDataDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={onClose}
+            onClick={() => { setSelectedTargetId(""); onClose(); }}
             disabled={isMerging}
             className="border-slate-200 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
           >
