@@ -198,13 +198,14 @@ export async function GET(request: NextRequest) {
     // 1. Fetch current cache from Supabase to prevent redundant GeoServer calls
     const { data: existingCache, error: cacheErr } = await fetchAllRows<{
       id_dataset: string;
+      uuid: string | null;
       last_updated: string | null;
       geometry_type: string | null;
       attribute_count: number | null;
     }>((from, to) =>
       supabase
         .from("cache_layer_geoportal")
-        .select("id_dataset, last_updated, geometry_type, attribute_count")
+        .select("id_dataset, uuid, last_updated, geometry_type, attribute_count")
         .order("id_dataset", { ascending: true })
         .range(from, to)
     );
@@ -351,6 +352,7 @@ export async function GET(request: NextRequest) {
     // 6b. Remove cached layers that no longer exist on GeoNode (deleted / re-uploaded).
     // Only when the GeoNode list is complete, so a truncated response never wipes the cache.
     let removedCount = 0;
+    let orphanedDataCount = 0;
     const isCompleteList = totalCount !== null && datasets.length >= totalCount;
     if (isCompleteList && !cacheErr) {
       const liveIds = new Set(datasets.map((ds) => String(ds.id)));
@@ -368,6 +370,23 @@ export async function GET(request: NextRequest) {
           console.error("[Sync JIGD] Error removing stale cached layers:", deleteErr);
         } else {
           removedCount = staleIds.length;
+
+          // Daftar data yang masih merujuk layer yang baru dihapus: dilaporkan agar petugas
+          // memilih layer penggantinya (di Dashboard ditandai "layer hilang").
+          const staleSet = new Set(staleIds);
+          const staleUuids = existingCache
+            .filter((item) => staleSet.has(String(item.id_dataset)) && item.uuid)
+            .map((item) => item.uuid as string);
+          if (staleUuids.length > 0) {
+            const list = `(${staleUuids.map((u) => `"${u}"`).join(",")})`;
+            const arr = `{${staleUuids.map((u) => `"${u}"`).join(",")}}`;
+            const { count, error: orphanErr } = await supabase
+              .from("daftar_data")
+              .select("id", { count: "exact", head: true })
+              .or(`layer_utama_uuid.in.${list},layer_pelengkap_uuids.ov.${arr}`);
+            if (orphanErr) console.error("[Sync JIGD] Error counting orphaned daftar_data:", orphanErr);
+            else orphanedDataCount = count ?? 0;
+          }
         }
       }
     }
@@ -438,6 +457,7 @@ export async function GET(request: NextRequest) {
       opd_count: opdRows.length,
       new_opd_count: newOpdCount,
       removed_count: removedCount,
+      orphaned_data_count: orphanedDataCount,
       queried_layers: layersToQuery.length,
       cached_layers: datasets.length - layersToQuery.length,
       timestamp: new Date().toISOString(),

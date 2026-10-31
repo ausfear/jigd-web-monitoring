@@ -37,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  TriangleAlert,
 } from "lucide-react";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { fetchTahunAktif, TAHUN_DEFAULT } from "@/lib/tahun";
@@ -150,6 +151,7 @@ function DashboardContent() {
 
   // Filters & Search (disimpan di URL: ?opd=&tahun=&q=&page=)
   const selectedYear = searchParams.get("tahun") ?? "all";
+  const onlyMissingLayer = searchParams.get("hilang") === "1";
   const [searchQuery, setSearchQuery] = useDebouncedQueryText("q", searchParams.get("q") ?? "", setParams);
 
   // Pagination States
@@ -221,10 +223,14 @@ function DashboardContent() {
         setSyncStatus(
           `Berhasil sinkron: ${result.synced_count} layer, ${result.opd_count || 0} OPD terdata` +
             (result.new_opd_count ? ` (${result.new_opd_count} OPD baru)` : "") +
-            (result.removed_count ? `, ${result.removed_count} layer usang dihapus dari cache.` : ".")
+            (result.removed_count ? `, ${result.removed_count} layer usang dihapus dari cache.` : ".") +
+            (result.orphaned_data_count
+              ? ` ${result.orphaned_data_count} daftar data merujuk layer yang dihapus; pilih penggantinya lewat Verifikasi.`
+              : "")
         );
         await fetchData();
-        setTimeout(() => setSyncStatus(null), 6000);
+        // Pesan yang meminta tindakan tetap tampil sampai ditutup.
+        if (!result.orphaned_data_count) setTimeout(() => setSyncStatus(null), 6000);
       } else {
         setSyncStatus(`Gagal sinkron: ${result.error || "Terjadi kesalahan"}`);
       }
@@ -340,6 +346,19 @@ function DashboardContent() {
     return map;
   }, [cachedLayers]);
 
+  // Daftar data yang merujuk layer yang sudah tidak ada di cache Geoportal (dihapus atau
+  // diunggah ulang di GeoNode lalu tersapu sinkronisasi). Statusnya masih "Terisi" sampai
+  // layer penggantinya dipilih lewat Verifikasi.
+  const missingLayerIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (layerMap.size === 0) return ids;
+    dataList.forEach((d) => {
+      const refs = [d.layer_utama_uuid, ...(d.layer_pelengkap_uuids || [])];
+      if (refs.some((uuid) => uuid && !layerMap.has(uuid))) ids.add(d.id);
+    });
+    return ids;
+  }, [dataList, layerMap]);
+
   // Only OPDs that have at least one layer in cache_layer_geoportal
   const activeGeoportalOpds = useMemo(() => {
     const uploadedOwners = new Set(
@@ -410,9 +429,11 @@ function DashboardContent() {
         kugiCode.includes(query) ||
         tagBidang.includes(query);
 
-      return matchYear && matchOpd && matchSearch;
+      const matchMissing = !onlyMissingLayer || missingLayerIds.has(item.id);
+
+      return matchYear && matchOpd && matchSearch && matchMissing;
     });
-  }, [dataList, selectedYear, selectedOpd, searchQuery]);
+  }, [dataList, selectedYear, selectedOpd, searchQuery, onlyMissingLayer, missingLayerIds]);
 
   // Pagination Slicing
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
@@ -583,6 +604,17 @@ function DashboardContent() {
               <span className="text-ink">{filteredData.length} daftar data</span>
               <span className="inline-flex items-center gap-1.5"><Swatch filled />{totalFilled} terisi ({percentageFilled}%)</span>
               <span className="inline-flex items-center gap-1.5"><Swatch />{filteredData.length - totalFilled} belum terisi</span>
+              {missingLayerIds.size > 0 && !onlyMissingLayer && (
+                <button
+                  type="button"
+                  onClick={() => setParams({ hilang: "1", page: null })}
+                  className="inline-flex items-center gap-1.5 text-bound hover:underline cursor-pointer"
+                  title="Tampilkan daftar data yang layernya sudah tidak ada di Geoportal"
+                >
+                  <TriangleAlert className="h-3.5 w-3.5" />
+                  {missingLayerIds.size} merujuk layer yang hilang
+                </button>
+              )}
             </div>
 
             {/* Chip filter aktif: teks boleh turun baris (tidak terpotong), klik × untuk menghapus filter */}
@@ -593,6 +625,14 @@ function DashboardContent() {
                   value={opdList.find(o => o.id === selectedOpd || o.username_jigd?.toLowerCase() === selectedOpd.toLowerCase())?.nama_opd || "Terfilter"}
                   onRemove={() => setParams({ opd: null, page: null })}
                   className="border border-qty/60 text-ink"
+                />
+              )}
+              {onlyMissingLayer && (
+                <FilterChip
+                  label="Layer"
+                  value="hilang dari Geoportal"
+                  onRemove={() => setParams({ hilang: null, page: null })}
+                  className="border border-bound/60 text-bound"
                 />
               )}
               {selectedYear !== "all" && (
@@ -675,6 +715,9 @@ function DashboardContent() {
                     const pelengkapLayers = (item.layer_pelengkap_uuids || [])
                       .map((uuid) => layerMap.get(uuid))
                       .filter(Boolean) as CacheLayerGeoportal[];
+                    const missingUtama = Boolean(item.layer_utama_uuid) && !primaryLayer && layerMap.size > 0;
+                    const missingPelengkap =
+                      layerMap.size > 0 ? (item.layer_pelengkap_uuids || []).length - pelengkapLayers.length : 0;
 
                     return (
                       <TableRow
@@ -723,9 +766,20 @@ function DashboardContent() {
                                 <ExternalLink className="h-3 w-3" />
                               </a>
                             </div>
+                          ) : missingUtama ? (
+                            <div className="mt-1 flex items-start gap-1.5 text-[13px] text-bound">
+                              <TriangleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              <span>Layer utama sudah tidak ada di Geoportal. Pilih penggantinya lewat Verifikasi.</span>
+                            </div>
                           ) : (
                             <div className="text-[13px] text-ink-2 italic mt-0.5">
                               Belum ada layer terpaut
+                            </div>
+                          )}
+                          {missingPelengkap > 0 && (
+                            <div className="mt-1 flex items-start gap-1.5 text-[13px] text-bound">
+                              <TriangleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              <span>{missingPelengkap} layer pelengkap sudah tidak ada di Geoportal.</span>
                             </div>
                           )}
 

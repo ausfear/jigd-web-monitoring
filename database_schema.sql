@@ -72,6 +72,25 @@ CREATE TABLE IF NOT EXISTS pengaturan_tahun (
 );
 INSERT INTO pengaturan_tahun (tahun) VALUES (2025), (2026) ON CONFLICT (tahun) DO NOTHING;
 
+-- status_keterisian selalu = punya Layer Utama (lihat migrations/2026-10-31_trigger_status_keterisian.sql)
+CREATE OR REPLACE FUNCTION public.sinkron_status_keterisian()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  NEW.layer_utama_uuid := NULLIF(btrim(NEW.layer_utama_uuid), '');
+  NEW.status_keterisian := NEW.layer_utama_uuid IS NOT NULL;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sinkron_status_keterisian ON public.daftar_data;
+CREATE TRIGGER trg_sinkron_status_keterisian
+  BEFORE INSERT OR UPDATE ON public.daftar_data
+  FOR EACH ROW
+  EXECUTE FUNCTION public.sinkron_status_keterisian();
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_daftar_data_opd_id ON daftar_data(opd_id);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_kugi_id ON daftar_data(kugi_id);

@@ -148,6 +148,14 @@ export function VerificationEditDialog({
     return opdStrictLayers.find((l) => l.uuid === layerUtamaUuid) || null;
   }, [layerUtamaUuid, opdStrictLayers]);
 
+  // Layer Utama tersimpan yang tidak ditemukan di antara layer OPD ini: sudah hilang dari
+  // Geoportal, atau milik OPD lain.
+  const orphanLayerUtama = useMemo(() => {
+    if (!layerUtamaUuid || selectedLayerUtama || allCachedLayers.length === 0) return null;
+    const elsewhere = allCachedLayers.find((l) => l.uuid === layerUtamaUuid);
+    return { otherOwner: elsewhere ? `${elsewhere.title} (@${elsewhere.owner_username})` : null };
+  }, [layerUtamaUuid, selectedLayerUtama, allCachedLayers]);
+
   // Available layers for Layer Pelengkap (excluding Layer Utama)
   const availablePelengkapLayers = useMemo(() => {
     return opdStrictLayers.filter((l) => l.uuid !== layerUtamaUuid);
@@ -610,6 +618,18 @@ export function VerificationEditDialog({
                 Hanya menampilkan layer Geoportal yang diunggah oleh <strong>@{opdUsername || "OPD"}</strong>.
               </p>
             </div>
+
+            {orphanLayerUtama && (
+              <div role="alert" className="flex items-start gap-2 border border-bound border-l-4 p-3 text-sm text-bound">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  {orphanLayerUtama.otherOwner
+                    ? `Layer Utama tersimpan milik OPD lain: ${orphanLayerUtama.otherOwner}.`
+                    : "Layer Utama tersimpan sudah tidak ada di Geoportal (dihapus atau diunggah ulang)."}{" "}
+                  Pilih penggantinya di bawah, atau kosongkan agar status menjadi Belum terisi.
+                </span>
+              </div>
+            )}
 
             {!opdUsername ? (
               <div className="p-3 bg-contour/10 border border-contour/40 rounded-lg text-sm text-contour flex items-center gap-2">

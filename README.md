@@ -14,7 +14,7 @@ sudah diunggah ke GeoNode JIGD. Baris juga bisa ditandai dengan unsur
 | `/` Beranda | Publik | Ringkasan dan tautan ke halaman lain |
 | `/overview` | Publik | Statistik layer (geometri, SRID) dan perbandingan keterisian antar tahun |
 | `/produsen` | Publik | Rekap keterisian dan pemetaan KUGI per OPD |
-| `/datasets` | Publik | Katalog seluruh layer GeoNode yang tersimpan di cache |
+| `/datasets` | Publik | Katalog seluruh layer GeoNode yang tersimpan di cache. Tanda ceklis di ujung judul menandai layer yang sudah dipakai di daftar data (filter: Sudah / Belum dipakai) |
 | `/dashboard` | Login | Kelola daftar data: tambah manual atau CSV, verifikasi layer dan KUGI, merge, pengaturan tahun, sinkronisasi GeoNode, unduh laporan Word |
 
 ## Teknologi
@@ -63,7 +63,7 @@ sudah diunggah ke GeoNode JIGD. Baris juga bisa ditandai dengan unsur
 
 Jalankan file berikut di **Supabase → SQL Editor**: klik *New query*, tempel isi file, lalu klik *Run*.
 
-1. `database_schema.sql`: semua tabel, index, dan policy RLS.
+1. `database_schema.sql`: semua tabel, index, policy RLS, dan trigger yang menyamakan status Terisi dengan Layer Utama.
 2. File di folder `migrations/` sesuai urutan tanggal. Semua file aman dijalankan ulang.
 
 Akun login dashboard dibuat lewat **Supabase → Authentication → Users → Add user**.

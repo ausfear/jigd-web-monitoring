@@ -26,11 +26,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Check,
 } from "lucide-react";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { CacheLayerGeoportal, MasterOpd } from "@/types/database";
 
-/** Ambil daftar OPD dan layer dari Supabase secara paralel (tidak menyentuh state React). */
+type PemakaianLayer = { nama_data: string; layer_utama_uuid: string | null; layer_pelengkap_uuids: string[] | null };
+
+/** Daftar data yang memakai sebuah layer, sebagai Layer Utama atau Layer Pelengkap. */
+type DipakaiOleh = { utama: string[]; pelengkap: string[] };
+
+/** Ambil daftar OPD, layer, dan pemakaian layer dari Supabase secara paralel (tidak menyentuh state React). */
 function loadDatasetsData() {
   return Promise.all([
     supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
@@ -42,7 +48,44 @@ function loadDatasetsData() {
         .order("id_dataset", { ascending: true })
         .range(from, to)
     ),
+    fetchAllRows<PemakaianLayer>((from, to) =>
+      supabase
+        .from("daftar_data")
+        .select("nama_data, layer_utama_uuid, layer_pelengkap_uuids")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
   ]);
+}
+
+function keteranganPemakaian(dipakai: DipakaiOleh): string {
+  const baris = [
+    ...dipakai.utama.map((n) => `- ${n} (layer utama)`),
+    ...dipakai.pelengkap.map((n) => `- ${n} (layer pelengkap)`),
+  ];
+  return `Sudah dipakai di ${baris.length} daftar data:\n${baris.join("\n")}`;
+}
+
+/**
+ * Judul layer dengan tanda ceklis di ujungnya bila layer sudah dipakai di daftar data.
+ * Kata terakhir dan ikon dibuat tidak terpisah, agar ikon tidak turun baris sendirian.
+ */
+function JudulLayer({ title, dipakai }: { title: string; dipakai?: DipakaiOleh }) {
+  if (!dipakai) return <>{title}</>;
+  const cut = title.lastIndexOf(" ") + 1;
+  const keterangan = keteranganPemakaian(dipakai);
+  return (
+    <>
+      {title.slice(0, cut)}
+      <span className="whitespace-nowrap">
+        {title.slice(cut)}
+        <span title={keterangan} className="ml-1.5 inline-flex align-[-2px] text-done">
+          <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+          <span className="sr-only">{keterangan}</span>
+        </span>
+      </span>
+    </>
+  );
 }
 
 function DatasetsContent() {
@@ -51,6 +94,7 @@ function DatasetsContent() {
 
   const [layers, setLayers] = useState<CacheLayerGeoportal[]>([]);
   const [opdList, setOpdList] = useState<MasterOpd[]>([]);
+  const [pemakaian, setPemakaian] = useState<PemakaianLayer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -58,6 +102,8 @@ function DatasetsContent() {
   // Filter disimpan di URL: ?opd=&geom=&q=&page=
   const [searchQuery, setSearchQuery] = useDebouncedQueryText("q", searchParams.get("q") ?? "", setParams);
   const selectedGeometry = searchParams.get("geom") ?? "all";
+  // ?pakai=ya | belum: layer yang sudah / belum dipakai di daftar data
+  const selectedPemakaian = searchParams.get("pakai") ?? "all";
 
   // Pagination
   const [pageSize, setPageSize] = useState(10);
@@ -66,10 +112,11 @@ function DatasetsContent() {
   const fetchData = useCallback(
     () =>
       loadDatasetsData()
-        .then(([opdRes, layersRes]) => {
+        .then(([opdRes, layersRes, pemakaianRes]) => {
           if (opdRes.data) setOpdList(opdRes.data);
           if (!layersRes.error) setLayers(layersRes.data);
-          setLoadError(opdRes.error || layersRes.error ? DB_UNREACHABLE_MESSAGE : null);
+          if (!pemakaianRes.error) setPemakaian(pemakaianRes.data);
+          setLoadError(opdRes.error || layersRes.error || pemakaianRes.error ? DB_UNREACHABLE_MESSAGE : null);
         })
         .catch((err) => {
           console.error("Error fetching datasets:", err);
@@ -94,6 +141,23 @@ function DatasetsContent() {
     const directMatch = layers.find((l) => l.owner_username?.toLowerCase() === param);
     return directMatch ? directMatch.owner_username.toLowerCase() : "all";
   }, [opdParam, opdList, layers]);
+
+  // Layer UUID -> daftar data yang memakainya (seperti highlight antarsheet di Excel)
+  const dipakaiMap = useMemo(() => {
+    const map = new Map<string, DipakaiOleh>();
+    const entry = (uuid: string) => {
+      let e = map.get(uuid);
+      if (!e) map.set(uuid, (e = { utama: [], pelengkap: [] }));
+      return e;
+    };
+    pemakaian.forEach((d) => {
+      if (d.layer_utama_uuid) entry(d.layer_utama_uuid).utama.push(d.nama_data);
+      new Set(d.layer_pelengkap_uuids || []).forEach((uuid) => {
+        if (uuid && uuid !== d.layer_utama_uuid) entry(uuid).pelengkap.push(d.nama_data);
+      });
+    });
+    return map;
+  }, [pemakaian]);
 
   // Unique geometry types from cache
   const availableGeometries = useMemo(() => {
@@ -143,9 +207,19 @@ function DatasetsContent() {
         item.srid?.toLowerCase().includes(q) ||
         item.geometry_type?.toLowerCase().includes(q);
 
-      return matchOpd && matchGeo && matchSearch;
+      // 4. Status pemakaian di daftar data
+      const dipakai = Boolean(item.uuid && dipakaiMap.has(item.uuid));
+      const matchPemakaian =
+        selectedPemakaian === "all" || (selectedPemakaian === "ya" ? dipakai : !dipakai);
+
+      return matchOpd && matchGeo && matchSearch && matchPemakaian;
     });
-  }, [layers, selectedOpdUsername, selectedGeometry, searchQuery]);
+  }, [layers, selectedOpdUsername, selectedGeometry, searchQuery, dipakaiMap, selectedPemakaian]);
+
+  const filteredDipakaiCount = useMemo(
+    () => filteredLayers.filter((l) => l.uuid && dipakaiMap.has(l.uuid)).length,
+    [filteredLayers, dipakaiMap]
+  );
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredLayers.length / pageSize));
@@ -184,13 +258,13 @@ function DatasetsContent() {
             </div>
 
             {/* Filter controls */}
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5 xl:flex-nowrap xl:shrink-0">
               {/* Search */}
-              <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+              <div className="relative min-w-[220px] flex-1 sm:flex-initial xl:min-w-0 xl:w-[210px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-2" />
                 <Input
                   type="text"
-                  placeholder="Cari judul, layer, OPD, SRID..."
+                  placeholder="Cari layer, OPD, SRID…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-9 text-sm bg-sheet border-ink/40 focus-visible:ring-qty/30"
@@ -235,6 +309,21 @@ function DatasetsContent() {
                   ))}
                 </select>
               </div>
+
+              {/* Filter status pemakaian di daftar data */}
+              <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                <select
+                  id="filter-pemakaian"
+                  aria-label="Pemakaian di daftar data"
+                  value={selectedPemakaian}
+                  onChange={(e) => setParams({ pakai: e.target.value === "all" ? null : e.target.value, page: null })}
+                  className={cn(controlClass, "pr-8 cursor-pointer")}
+                >
+                  <option value="all">Semua Pemakaian</option>
+                  <option value="ya">Sudah dipakai</option>
+                  <option value="belum">Belum dipakai</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -245,6 +334,12 @@ function DatasetsContent() {
                 {filteredLayers.length} layer
                 {selectedOpdUsername !== "all" && <> milik @{selectedOpdUsername}</>}
               </span>
+              {!isLoading && filteredLayers.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 tabular-nums">
+                  <Check className="h-4 w-4 text-done" strokeWidth={3} aria-hidden="true" />
+                  {filteredDipakaiCount} sudah dipakai di daftar data
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -283,7 +378,7 @@ function DatasetsContent() {
                   size="sm"
                   onClick={() => {
                     setSearchQuery("");
-                    setParams({ q: null, opd: null, geom: null, page: null });
+                    setParams({ q: null, opd: null, geom: null, pakai: null, page: null });
                   }}
                   className="text-xs"
                 >
@@ -318,7 +413,10 @@ function DatasetsContent() {
                       {/* Title & Name */}
                       <TableCell className="py-3 whitespace-normal">
                         <div className="text-sm text-ink leading-snug">
-                          {layer.title || "Layer Tanpa Judul"}
+                          <JudulLayer
+                            title={layer.title || "Layer Tanpa Judul"}
+                            dipakai={layer.uuid ? dipakaiMap.get(layer.uuid) : undefined}
+                          />
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
                           <code className="text-[13px] text-ink-2 break-all">
