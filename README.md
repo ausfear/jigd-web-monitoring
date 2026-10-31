@@ -15,7 +15,7 @@ sudah diunggah ke GeoNode JIGD. Baris juga bisa ditandai dengan unsur
 | `/overview` | Publik | Statistik layer (geometri, SRID) dan perbandingan keterisian antar tahun |
 | `/produsen` | Publik | Rekap keterisian dan pemetaan KUGI per OPD |
 | `/datasets` | Publik | Katalog seluruh layer GeoNode yang tersimpan di cache |
-| `/dashboard` | Login | Kelola daftar data: tambah manual atau CSV, verifikasi layer dan KUGI, merge, pengaturan tahun, sinkronisasi GeoNode |
+| `/dashboard` | Login | Kelola daftar data: tambah manual atau CSV, verifikasi layer dan KUGI, merge, pengaturan tahun, sinkronisasi GeoNode, unduh laporan Word |
 
 ## Teknologi
 
@@ -71,6 +71,14 @@ Akun login dashboard dibuat lewat **Supabase → Authentication → Users → Ad
 Policy RLS:
 - **Baca**: publik, karena halaman Overview, Produsen, dan Datasets bisa dibuka tanpa login.
 - **Tulis** (tambah, ubah, hapus): hanya untuk user yang login.
+
+## Laporan Word
+
+Tombol **Unduh Laporan** di Dashboard menghasilkan dokumen "Tingkat Keterisian Data pada Portal JIGD" (.docx) untuk tahun dan tanggal update yang dipilih. Dokumen disusun di server (`app/api/laporan-keterisian`) dan hanya bisa diunduh setelah login.
+
+- **Format** diambil dari `templates/laporan-keterisian.docx`. Baris tabel dari file itu disalin apa adanya, lalu hanya data, warna status, tahun di judul kolom, dan kedua tanggal yang diganti. Isian SRIKANDI (`${nomor_naskah}`, `${ttd_pengirim}`, `${nama_pengirim}`, `${nip_pengirim}`) dibiarkan.
+- **Isi tabel**: daftar data tahun terpilih menurut urutan sheet Daftar Data, dikelompokkan per OPD (nama dari `master_opd`). Kolom layer berisi judul layer utama lalu layer pelengkap.
+- **Mengganti format**: timpa `templates/laporan-keterisian.docx` dengan laporan versi baru (misalnya kop atau penandatangan berubah). Strukturnya harus tetap sama: tabel utama enam kolom dengan sel OPD digabung, tabel rekap berbaris "Terisi" dan "Tidak Terisi", serta baris "Update: …" dan "Samarinda, …".
 
 ## Alur kerja tahunan
 

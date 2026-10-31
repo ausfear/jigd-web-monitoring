@@ -47,6 +47,7 @@ import { CsvUploadDialog } from "@/components/dashboard/csv-upload-dialog";
 import { MergeDataDialog } from "@/components/dashboard/merge-data-dialog";
 import { VerificationEditDialog } from "@/components/dashboard/verification-edit-dialog";
 import { YearSettingsDialog } from "@/components/dashboard/year-settings-dialog";
+import { ReportDownloadDialog } from "@/components/dashboard/report-download-dialog";
 
 /**
  * Ambil seluruh data dashboard dari Supabase secara paralel (tabel besar diambil per 1.000 baris).
@@ -483,6 +484,7 @@ function DashboardContent() {
                 {isSyncing ? "Menyinkronkan…" : "Sinkronisasi GeoNode"}
               </Button>
               <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} />
+              <ReportDownloadDialog years={availableYears} defaultYear={latestYear} dataList={dataList} />
               <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
               <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
             </>
