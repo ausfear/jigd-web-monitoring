@@ -85,3 +85,32 @@ export interface GeoNodeApiResponse {
   total: number;
   objects: GeoNodeLayerItem[];
 }
+
+/** Pasangan daftar data yang kemungkinan sama, menunggu ditinjau (tabel usulan_merge). */
+export interface UsulanMerge {
+  id: string;
+  /** Data yang diusulkan untuk digabung (dihapus saat merge). */
+  data_id: string;
+  /** Data tujuan (tetap ada dan menerima hasil gabungan). */
+  target_id: string;
+  alasan: string | null;
+  created_at: string;
+}
+
+/** Satu kolom yang berubah: nilai sebelum dan sesudah (format JSON dari trigger). */
+export interface PerubahanKolom {
+  lama: unknown;
+  baru: unknown;
+}
+
+/** Catatan riwayat perubahan daftar data (tabel riwayat_perubahan, diisi trigger). */
+export interface RiwayatPerubahan {
+  id: number;
+  waktu: string;
+  aksi: "tambah" | "ubah" | "hapus" | "urutan";
+  data_id: string | null;
+  nama_data: string | null;
+  opd_id: string | null;
+  perubahan: Record<string, PerubahanKolom>;
+  pengguna: string | null;
+}

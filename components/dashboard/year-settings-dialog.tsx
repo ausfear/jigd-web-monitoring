@@ -10,12 +10,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useDialogState } from "@/lib/use-dialog-state";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
 interface YearSettingsDialogProps {
   years: number[];
   onSuccess: () => void;
+  /** Dikendalikan dari luar (menu Pengaturan): tombol pemicu tidak ditampilkan. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -23,8 +27,7 @@ interface YearSettingsDialogProps {
  * di dialog Verifikasi, filter, Overview, dan Produsen. Menghapus tahun di sini tidak
  * menghapus data apa pun di daftar_data.
  */
-export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function YearSettingsDialog({ years, onSuccess, open, onOpenChange }: YearSettingsDialogProps) {
   const [newYear, setNewYear] = useState("");
   const [busyYear, setBusyYear] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -81,17 +84,21 @@ export function YearSettingsDialog({ years, onSuccess }: YearSettingsDialogProps
     }
   };
 
+  const { isOpen, setIsOpen, controlled } = useDialogState(open, onOpenChange);
+
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(true)}
-        className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
-      >
-        <CalendarCog className="h-4 w-4 mr-1.5" />
-        Pengaturan Tahun
-      </Button>
+      {!controlled && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(true)}
+          className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
+        >
+          <CalendarCog className="h-4 w-4 mr-1.5" />
+          Pengaturan Tahun
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setErrorMessage(null); setNewYear(""); } }}>
         <DialogContent className="sm:max-w-md">

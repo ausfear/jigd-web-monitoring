@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { sarankanLayer } from "@/lib/layer-suggest";
 import {
   FileCheck2,
   Layers,
@@ -53,6 +54,8 @@ interface VerificationEditDialogProps {
   /** Tahun aktif dari Pengaturan Tahun (pilihan tombol Tahun Berlaku). */
   tahunAktif: number[];
   availableTags?: string[];
+  /** Seluruh daftar data, untuk menandai layer saran yang sudah dipakai data lain. */
+  allRecords?: DaftarData[];
   onSuccess: () => void;
 }
 
@@ -64,6 +67,7 @@ export function VerificationEditDialog({
   allKugi,
   tahunAktif,
   availableTags = [],
+  allRecords = [],
   onSuccess,
 }: VerificationEditDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
@@ -155,6 +159,26 @@ export function VerificationEditDialog({
     const elsewhere = allCachedLayers.find((l) => l.uuid === layerUtamaUuid);
     return { otherOwner: elsewhere ? `${elsewhere.title} (@${elsewhere.owner_username})` : null };
   }, [layerUtamaUuid, selectedLayerUtama, allCachedLayers]);
+
+  // Saran Layer Utama dari kemiripan nama data dengan judul/nama layer milik OPD ini.
+  // Ditampilkan selama Layer Utama belum dipilih (atau yang tersimpan sudah hilang).
+  const saranLayer = useMemo(() => {
+    if (selectedLayerUtama || !namaData.trim()) return [];
+    return sarankanLayer(namaData, opdStrictLayers);
+  }, [selectedLayerUtama, namaData, opdStrictLayers]);
+
+  // Layer -> nama daftar data lain yang sudah memakainya
+  const dipakaiDataLain = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const r of allRecords) {
+      if (r.id === record?.id) continue;
+      for (const uuid of new Set([r.layer_utama_uuid, ...(r.layer_pelengkap_uuids || [])])) {
+        if (!uuid) continue;
+        map.set(uuid, [...(map.get(uuid) ?? []), r.nama_data]);
+      }
+    }
+    return map;
+  }, [allRecords, record]);
 
   // Available layers for Layer Pelengkap (excluding Layer Utama)
   const availablePelengkapLayers = useMemo(() => {
@@ -642,6 +666,40 @@ export function VerificationEditDialog({
               </div>
             ) : (
               <>
+                {saranLayer.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[13px] font-semibold text-ink">Saran dari kemiripan nama data</p>
+                    <ul className="divide-y divide-rule border border-qty/40">
+                      {saranLayer.map(({ layer }) => {
+                        const dipakai = layer.uuid ? dipakaiDataLain.get(layer.uuid) : undefined;
+                        return (
+                          <li key={layer.uuid}>
+                            <button
+                              type="button"
+                              onClick={() => layer.uuid && handleLayerUtamaChange(layer.uuid)}
+                              className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-qty/10 focus-visible:bg-qty/10 focus-visible:outline-none cursor-pointer"
+                            >
+                              <span className="min-w-0">
+                                <span className="block text-sm text-ink">{layer.title}</span>
+                                <span className="block text-[13px] text-ink-2 break-all">
+                                  {layer.name !== layer.title && layer.name}
+                                  {dipakai && (
+                                    <span className="text-contour">
+                                      {layer.name !== layer.title && " · "}sudah dipakai: {dipakai[0]}
+                                      {dipakai.length > 1 && ` (+${dipakai.length - 1})`}
+                                    </span>
+                                  )}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-[13px] font-semibold text-qty">Pilih</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Searchable Layer Utama Combobox (Popover + Command) */}
                 <Popover open={openLayerUtama} onOpenChange={setOpenLayerUtama}>
                   <PopoverTrigger

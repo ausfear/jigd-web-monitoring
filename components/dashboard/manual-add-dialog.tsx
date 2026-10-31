@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useDialogState } from "@/lib/use-dialog-state";
 import { Input } from "@/components/ui/input";
 import { MasterOpd } from "@/types/database";
 import { supabase } from "@/lib/supabase";
@@ -21,12 +22,14 @@ interface ManualAddDialogProps {
   /** Tahun yang terisi otomatis saat dialog dibuka (tahun aktif terbaru). */
   defaultYear: number;
   onSuccess: () => void;
+  /** Dikendalikan dari luar (menu Pengaturan): tombol pemicu tidak ditampilkan. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   size?: "default" | "sm";
   className?: string;
 }
 
-export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", className }: ManualAddDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", className, open, onOpenChange }: ManualAddDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -88,19 +91,23 @@ export function ManualAddDialog({ opdList, defaultYear, onSuccess, size = "sm", 
     }
   };
 
+  const { isOpen, setIsOpen, controlled } = useDialogState(open, onOpenChange, () => setTahun(String(defaultYear)));
+
   return (
     <>
-      <Button
-        size={size}
-        onClick={() => { setTahun(String(defaultYear)); setIsOpen(true); }}
-        className={cn(
-          "h-9 bg-qty hover:bg-qty/90 px-3 text-sm text-sheet",
-          className
-        )}
-      >
-        <PlusCircle className="h-4 w-4 mr-1.5" />
-        Tambah Data
-      </Button>
+      {!controlled && (
+        <Button
+          size={size}
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            "h-9 bg-qty hover:bg-qty/90 px-3 text-sm text-sheet",
+            className
+          )}
+        >
+          <PlusCircle className="h-4 w-4 mr-1.5" />
+          Tambah Data
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="sm:max-w-lg">

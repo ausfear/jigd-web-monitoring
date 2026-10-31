@@ -38,24 +38,35 @@ import {
   ChevronRight,
   X,
   TriangleAlert,
+  Settings2,
+  ChevronDown,
+  PlusCircle,
+  Upload,
+  ArrowUpDown,
+  FileDown,
+  History,
+  CalendarCog,
 } from "lucide-react";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { fetchTahunAktif, TAHUN_DEFAULT } from "@/lib/tahun";
 import { useQueryParams, useDebouncedQueryText, readPageParam } from "@/lib/use-query-params";
-import { DaftarData, MasterOpd, MasterKugi, CacheLayerGeoportal } from "@/types/database";
+import { DaftarData, MasterOpd, MasterKugi, CacheLayerGeoportal, UsulanMerge } from "@/types/database";
 import { ManualAddDialog } from "@/components/dashboard/manual-add-dialog";
 import { CsvUploadDialog } from "@/components/dashboard/csv-upload-dialog";
 import { MergeDataDialog } from "@/components/dashboard/merge-data-dialog";
 import { VerificationEditDialog } from "@/components/dashboard/verification-edit-dialog";
 import { YearSettingsDialog } from "@/components/dashboard/year-settings-dialog";
 import { ReportDownloadDialog } from "@/components/dashboard/report-download-dialog";
+import { OrderDialog } from "@/components/dashboard/order-dialog";
+import { MergeSuggestionsDialog } from "@/components/dashboard/merge-suggestions-dialog";
+import { HistoryDialog } from "@/components/dashboard/history-dialog";
 
 /**
  * Ambil seluruh data dashboard dari Supabase secara paralel (tabel besar diambil per 1.000 baris).
  * Sengaja di luar komponen: fungsi ini tidak menyentuh state React.
  */
 async function loadDashboardData() {
-  const [opd, layers, kugi, daftar, tahun] = await Promise.all([
+  const [opd, layers, kugi, daftar, tahun, usulan] = await Promise.all([
     supabase.from("master_opd").select("*").order("nama_opd", { ascending: true }),
     fetchAllRows<CacheLayerGeoportal>((from, to) =>
       supabase
@@ -87,6 +98,7 @@ async function loadDashboardData() {
         .range(from, to)
     ),
     fetchTahunAktif(),
+    supabase.from("usulan_merge").select("*").order("created_at", { ascending: true }).returns<UsulanMerge[]>(),
   ]);
 
   // Sort by spreadsheet order (urutan) first; rows without urutan go last, newest first.
@@ -97,7 +109,7 @@ async function loadDashboardData() {
     return (b.created_at || "").localeCompare(a.created_at || "");
   });
 
-  return { opd, layers, kugi, daftar: { ...daftar, data: sortedDaftar }, tahun };
+  return { opd, layers, kugi, daftar: { ...daftar, data: sortedDaftar }, tahun, usulan };
 }
 
 /** Chip filter aktif. Nama OPD yang panjang turun ke baris berikutnya, bukan terpotong. */
@@ -171,6 +183,17 @@ function DashboardContent() {
   // Dialog States
   const [editingRecord, setEditingRecord] = useState<DaftarData | null>(null);
   const [mergingRecord, setMergingRecord] = useState<DaftarData | null>(null);
+  // Target merge yang langsung terpilih (saat dibuka dari Usulan merge)
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
+  const [usulanList, setUsulanList] = useState<UsulanMerge[]>([]);
+  // Dialog yang dibuka dari menu Pengaturan
+  const [menuDialog, setMenuDialog] = useState<
+    null | "tambah" | "csv" | "urutan" | "usulan" | "laporan" | "riwayat" | "tahun"
+  >(null);
+  const menuDialogProps = (key: NonNullable<typeof menuDialog>) => ({
+    open: menuDialog === key,
+    onOpenChange: (open: boolean) => setMenuDialog(open ? key : null),
+  });
 
   /**
    * Fetch all database records from Supabase.
@@ -180,7 +203,7 @@ function DashboardContent() {
   const fetchData = useCallback(
     () =>
       loadDashboardData()
-        .then(({ opd, layers, kugi, daftar, tahun }) => {
+        .then(({ opd, layers, kugi, daftar, tahun, usulan }) => {
           if (opd.error) console.error("Error fetching master_opd:", opd.error);
           else setOpdList(opd.data ?? []);
 
@@ -194,6 +217,8 @@ function DashboardContent() {
           else setDataList(daftar.data);
 
           setTahunAktif(tahun);
+          // Tabel usulan_merge bisa belum ada (migrasi belum dijalankan): anggap kosong.
+          setUsulanList(usulan.error ? [] : usulan.data ?? []);
           setLoadError(opd.error || layers.error || kugi.error || daftar.error ? DB_UNREACHABLE_MESSAGE : null);
         })
         .catch((err) => {
@@ -504,10 +529,59 @@ function DashboardContent() {
                 <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
                 {isSyncing ? "Menyinkronkan…" : "Sinkronisasi GeoNode"}
               </Button>
-              <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} />
-              <ReportDownloadDialog years={availableYears} defaultYear={latestYear} dataList={dataList} />
-              <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
-              <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} />
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      className="h-9 bg-qty px-3 text-sm text-sheet hover:bg-qty/90"
+                    >
+                      <Settings2 className="h-4 w-4 mr-1.5" />
+                      Pengaturan
+                      {usulanList.length > 0 && (
+                        <span className="ml-1.5 bg-sheet px-1.5 text-xs font-semibold text-qty tabular-nums">
+                          {usulanList.length}
+                        </span>
+                      )}
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuItem onClick={() => setMenuDialog("tambah")} className="cursor-pointer">
+                    <PlusCircle className="h-4 w-4 mr-1 text-qty" />
+                    Tambah data
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMenuDialog("csv")} className="cursor-pointer">
+                    <Upload className="h-4 w-4 mr-1 text-qty" />
+                    Unggah CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMenuDialog("urutan")} className="cursor-pointer">
+                    <ArrowUpDown className="h-4 w-4 mr-1 text-qty" />
+                    Atur urutan
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMenuDialog("usulan")} className="cursor-pointer">
+                    <GitMerge className="h-4 w-4 mr-1 text-qty" />
+                    Usulan merge
+                    {usulanList.length > 0 && (
+                      <span className="ml-auto text-xs font-semibold text-qty tabular-nums">{usulanList.length}</span>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-ink/10" />
+                  <DropdownMenuItem onClick={() => setMenuDialog("laporan")} className="cursor-pointer">
+                    <FileDown className="h-4 w-4 mr-1 text-qty" />
+                    Unduh laporan Word
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMenuDialog("riwayat")} className="cursor-pointer">
+                    <History className="h-4 w-4 mr-1 text-qty" />
+                    Riwayat perubahan
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMenuDialog("tahun")} className="cursor-pointer">
+                    <CalendarCog className="h-4 w-4 mr-1 text-qty" />
+                    Pengaturan tahun
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           }
         />
@@ -604,6 +678,16 @@ function DashboardContent() {
               <span className="text-ink">{filteredData.length} daftar data</span>
               <span className="inline-flex items-center gap-1.5"><Swatch filled />{totalFilled} terisi ({percentageFilled}%)</span>
               <span className="inline-flex items-center gap-1.5"><Swatch />{filteredData.length - totalFilled} belum terisi</span>
+              {usulanList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMenuDialog("usulan")}
+                  className="inline-flex items-center gap-1.5 text-qty hover:underline cursor-pointer"
+                >
+                  <GitMerge className="h-3.5 w-3.5" />
+                  {usulanList.length} usulan merge menunggu
+                </button>
+              )}
               {missingLayerIds.size > 0 && !onlyMissingLayer && (
                 <button
                   type="button"
@@ -880,7 +964,10 @@ function DashboardContent() {
 
                               {/* Option 2: Merge dengan Data Lain */}
                               <DropdownMenuItem
-                                onClick={() => setMergingRecord(item)}
+                                onClick={() => {
+                                  setMergeTargetId(null);
+                                  setMergingRecord(item);
+                                }}
                                 className="cursor-pointer text-sm"
                               >
                                 <GitMerge className="h-3.5 w-3.5 mr-2 text-qty" />
@@ -991,14 +1078,42 @@ function DashboardContent() {
         allKugi={kugiList}
         tahunAktif={tahunAktif}
         availableTags={availableTags}
+        allRecords={dataList}
         onSuccess={fetchData}
       />
 
       {/* Merge Data Dialog Modal */}
+      <ManualAddDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} {...menuDialogProps("tambah")} />
+      <CsvUploadDialog opdList={opdList} defaultYear={latestYear} onSuccess={fetchData} {...menuDialogProps("csv")} />
+      <OrderDialog dataList={dataList} opdList={opdList} onSuccess={fetchData} {...menuDialogProps("urutan")} />
+      <MergeSuggestionsDialog
+        usulan={usulanList}
+        dataList={dataList}
+        layerMap={layerMap}
+        onReview={(data, target) => {
+          setMenuDialog(null);
+          setMergeTargetId(target.id);
+          setMergingRecord(data);
+        }}
+        onChanged={fetchData}
+        {...menuDialogProps("usulan")}
+      />
+      <ReportDownloadDialog years={availableYears} defaultYear={latestYear} dataList={dataList} {...menuDialogProps("laporan")} />
+      <HistoryDialog opdList={opdList} kugiList={kugiList} layerMap={layerMap} {...menuDialogProps("riwayat")} />
+      <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} {...menuDialogProps("tahun")} />
+
       <MergeDataDialog
         sourceRecord={mergingRecord}
+        initialTargetId={mergeTargetId}
         isOpen={Boolean(mergingRecord)}
-        onClose={() => setMergingRecord(null)}
+        onClose={() => {
+          setMergingRecord(null);
+          // Kembali ke daftar usulan bila merge dibuka dari sana
+          if (mergeTargetId) {
+            setMergeTargetId(null);
+            setMenuDialog("usulan");
+          }
+        }}
         allRecords={dataList}
         allCachedLayers={cachedLayers}
         onSuccess={fetchData}

@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useDialogState } from "@/lib/use-dialog-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MasterOpd } from "@/types/database";
@@ -45,12 +46,14 @@ interface CsvUploadDialogProps {
   /** Tahun yang terisi otomatis saat dialog dibuka (tahun aktif terbaru). */
   defaultYear: number;
   onSuccess: () => void;
+  /** Dikendalikan dari luar (menu Pengaturan): tombol pemicu tidak ditampilkan. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   size?: "default" | "sm";
   className?: string;
 }
 
-export function CsvUploadDialog({ opdList, defaultYear, onSuccess, size = "sm", className }: CsvUploadDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function CsvUploadDialog({ opdList, defaultYear, onSuccess, size = "sm", className, open, onOpenChange }: CsvUploadDialogProps) {
   const [isParsing, setIsParsing] = useState(false);
   const [isInserting, setIsInserting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -265,20 +268,26 @@ export function CsvUploadDialog({ opdList, defaultYear, onSuccess, size = "sm", 
 
   const unmappedCount = mappings.filter(m => !m.matchedOpdId).length;
 
+  const { isOpen, setIsOpen, controlled } = useDialogState(open, onOpenChange, () =>
+    setTahunBerlaku(String(defaultYear))
+  );
+
   return (
     <>
-      <Button
-        variant="outline"
-        size={size}
-        onClick={() => { setTahunBerlaku(String(defaultYear)); setIsOpen(true); }}
-        className={cn(
-          "h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5",
-          className
-        )}
-      >
-        <Upload className="h-4 w-4 mr-1.5" />
-        Unggah CSV
-      </Button>
+      {!controlled && (
+        <Button
+          variant="outline"
+          size={size}
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            "h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5",
+            className
+          )}
+        >
+          <Upload className="h-4 w-4 mr-1.5" />
+          Unggah CSV
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetState(); }}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">

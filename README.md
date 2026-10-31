@@ -72,9 +72,24 @@ Policy RLS:
 - **Baca**: publik, karena halaman Overview, Produsen, dan Datasets bisa dibuka tanpa login.
 - **Tulis** (tambah, ubah, hapus): hanya untuk user yang login.
 
+## Menu Pengaturan di Dashboard
+
+Selain tombol **Sinkronisasi GeoNode**, semua aksi Dashboard ada di menu **Pengaturan**:
+
+| Menu | Fungsi |
+|---|---|
+| Tambah data, Unggah CSV | Menambah daftar data |
+| Atur urutan | Mengurutkan OPD, lalu daftar data di dalam tiap OPD (seret atau tombol panah). Urutan dipakai tabel, laporan Word, dan halaman publik; nomornya tidak ditampilkan |
+| Usulan merge | Pasangan daftar data yang kemungkinan sama (mis. hasil impor tahun lain). Gabungkan lewat dialog Merge, atau tandai "Bukan data yang sama" |
+| Unduh laporan Word | Lihat bagian berikut |
+| Riwayat perubahan | Setiap tambah, ubah, dan hapus daftar data beserta petugasnya, dicatat otomatis oleh trigger database |
+| Pengaturan tahun | Tahun aktif |
+
+Di dialog Verifikasi, selama Layer Utama belum dipilih, muncul **saran layer** milik OPD tersebut yang judul atau namanya mirip dengan nama data (`lib/layer-suggest.ts`), lengkap dengan keterangan bila layer itu sudah dipakai daftar data lain.
+
 ## Laporan Word
 
-Tombol **Unduh Laporan** di Dashboard menghasilkan dokumen "Tingkat Keterisian Data pada Portal JIGD" (.docx) untuk tahun dan tanggal update yang dipilih. Dokumen disusun di server (`app/api/laporan-keterisian`) dan hanya bisa diunduh setelah login.
+Menu **Unduh laporan Word** di Dashboard menghasilkan dokumen "Tingkat Keterisian Data pada Portal JIGD" (.docx) untuk tahun dan tanggal update yang dipilih. Dokumen disusun di server (`app/api/laporan-keterisian`) dan hanya bisa diunduh setelah login.
 
 - **Format** diambil dari `templates/laporan-keterisian.docx`. Baris tabel dari file itu disalin apa adanya, lalu hanya data, warna status, tahun di judul kolom, dan kedua tanggal yang diganti. Isian SRIKANDI (`${nomor_naskah}`, `${ttd_pengirim}`, `${nama_pengirim}`, `${nip_pengirim}`) dibiarkan.
 - **Isi tabel**: daftar data tahun terpilih menurut urutan sheet Daftar Data, dikelompokkan per OPD (nama dari `master_opd`). Kolom layer berisi judul layer utama lalu layer pelengkap.
@@ -82,13 +97,13 @@ Tombol **Unduh Laporan** di Dashboard menghasilkan dokumen "Tingkat Keterisian D
 
 ## Alur kerja tahunan
 
-1. **Tambahkan tahun baru** lewat Dashboard → **Pengaturan Tahun**. Contoh: tambahkan 2027 saat daftar data 2027 terbit. Tahun lama yang tidak lagi dipantau bisa dinonaktifkan; datanya tidak terhapus.
+1. **Tambahkan tahun baru** lewat Dashboard → Pengaturan → **Pengaturan tahun**. Contoh: tambahkan 2027 saat daftar data 2027 terbit. Tahun lama yang tidak lagi dipantau bisa dinonaktifkan; datanya tidak terhapus.
 2. **Sinkronisasi GeoNode** di Dashboard. Langkah ini:
    - memperbarui cache layer;
    - menghapus layer yang sudah dihapus dari GeoNode;
    - menambahkan OPD baru. Nama OPD yang sudah ada tidak diubah.
-3. **Masukkan daftar data** lewat **Upload CSV** atau **Tambah Data**.
+3. **Masukkan daftar data** lewat Pengaturan → **Unggah CSV** atau **Tambah data**, lalu rapikan posisinya lewat **Atur urutan**.
 4. **Verifikasi** setiap baris: pilih Layer Utama, Layer Pelengkap, dan KUGI.
-5. Jika ada baris ganda, gunakan **Merge dengan Data Lain**.
+5. Jika ada baris ganda, gunakan **Merge dengan Data Lain** (menu aksi baris) atau tinjau **Usulan merge**.
    - Tahun berlaku kedua baris digabung.
    - Jika kedua baris sudah punya layer atau KUGI yang berbeda, aplikasi meminta Anda memilih data utama.

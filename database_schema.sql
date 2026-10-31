@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS master_kugi (
     katalog_unsur TEXT,
     nama_unsur TEXT,
     alias TEXT,
-    kode_unsur TEXT UNIQUE,
+    kode_unsur TEXT, -- tidak unik: di KUGI ada kode yang dipakai dua unsur (mis. MB03060120)
     definisi TEXT,
     sumber_definisi TEXT,
     instansi_terkait TEXT,
@@ -91,8 +91,12 @@ CREATE TRIGGER trg_sinkron_status_keterisian
   FOR EACH ROW
   EXECUTE FUNCTION public.sinkron_status_keterisian();
 
+-- Tabel usulan_merge dan riwayat_perubahan (beserta trigger riwayat) ada di
+-- migrations/2026-10-31_usulan_merge_dan_riwayat.sql.
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_daftar_data_opd_id ON daftar_data(opd_id);
+CREATE INDEX IF NOT EXISTS idx_master_kugi_kode_unsur ON master_kugi(kode_unsur);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_kugi_id ON daftar_data(kugi_id);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_layer_utama_uuid ON daftar_data(layer_utama_uuid);
 CREATE INDEX IF NOT EXISTS idx_daftar_data_status_keterisian ON daftar_data(status_keterisian);

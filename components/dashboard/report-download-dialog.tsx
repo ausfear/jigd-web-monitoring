@@ -14,12 +14,16 @@ import { Button } from "@/components/ui/button";
 import { controlClass } from "@/components/lembar-peta";
 import { cn } from "@/lib/utils";
 import type { DaftarData } from "@/types/database";
+import { useDialogState } from "@/lib/use-dialog-state";
 
 interface ReportDownloadDialogProps {
   /** Tahun yang bisa dipilih, terbaru lebih dulu. */
   years: number[];
   defaultYear: number;
   dataList: DaftarData[];
+  /** Dikendalikan dari luar (menu Pengaturan): tombol pemicu tidak ditampilkan. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function hariIni(): string {
@@ -40,8 +44,7 @@ function namaFileDariHeader(header: string | null): string | null {
  * Unduh laporan "Tingkat Keterisian Data pada Portal JIGD" (.docx) dengan format
  * dokumen resmi. Isi tabel disusun di server dari data terbaru untuk tahun terpilih.
  */
-export function ReportDownloadDialog({ years, defaultYear, dataList }: ReportDownloadDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ReportDownloadDialog({ years, defaultYear, dataList, open, onOpenChange }: ReportDownloadDialogProps) {
   const [tahun, setTahun] = useState(defaultYear);
   const [tanggal, setTanggal] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -56,12 +59,11 @@ export function ReportDownloadDialog({ years, defaultYear, dataList }: ReportDow
     };
   }, [dataList, tahun]);
 
-  const open = () => {
+  const { isOpen, setIsOpen, controlled } = useDialogState(open, onOpenChange, () => {
     setTahun(defaultYear);
     setTanggal(hariIni());
     setErrorMessage(null);
-    setIsOpen(true);
-  };
+  });
 
   const handleDownload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,15 +101,17 @@ export function ReportDownloadDialog({ years, defaultYear, dataList }: ReportDow
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={open}
-        className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
-      >
-        <FileDown className="h-4 w-4 mr-1.5" />
-        Unduh Laporan
-      </Button>
+      {!controlled && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(true)}
+          className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
+        >
+          <FileDown className="h-4 w-4 mr-1.5" />
+          Unduh Laporan
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={(o) => !isGenerating && setIsOpen(o)}>
         <DialogContent className="sm:max-w-md">

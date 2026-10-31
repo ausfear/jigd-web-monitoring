@@ -22,6 +22,8 @@ interface MergeDataDialogProps {
   allRecords: DaftarData[];
   allCachedLayers: CacheLayerGeoportal[];
   onSuccess: () => void;
+  /** Data target yang langsung terpilih saat dialog dibuka (dari Usulan merge). */
+  initialTargetId?: string | null;
 }
 
 type MainChoice = "source" | "target";
@@ -77,9 +79,17 @@ export function MergeDataDialog({
   allRecords,
   allCachedLayers,
   onSuccess,
+  initialTargetId,
 }: MergeDataDialogProps) {
-  const [selectedTargetId, setSelectedTargetId] = useState<string>("");
+  const [selectedTargetId, setSelectedTargetId] = useState<string>(initialTargetId ?? "");
   const [mainChoice, setMainChoice] = useState<MainChoice | null>(null);
+  // Pilih target awal setiap kali dialog dibuka untuk data lain (penyesuaian saat render).
+  const [prevSourceId, setPrevSourceId] = useState(sourceRecord?.id);
+  if (sourceRecord?.id !== prevSourceId) {
+    setPrevSourceId(sourceRecord?.id);
+    setSelectedTargetId(initialTargetId ?? "");
+    setMainChoice(null);
+  }
   const [isMerging, setIsMerging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
