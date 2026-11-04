@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { SyncButton } from "@/components/sync-button";
 import { FillBar, PageHeader, StatStrip, controlClass } from "@/components/lembar-peta";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { useQueryParams, useDebouncedQueryText } from "@/lib/use-query-params";
@@ -185,8 +184,7 @@ function ProdusenContent() {
   }, [opdStats]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar currentPage="produsen" />
+    <div className="flex flex-1 flex-col">
 
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <DbErrorBanner message={loadError} />
@@ -194,9 +192,12 @@ function ProdusenContent() {
           title="Produsen data geospasial"
           description="Kesiapan daftar data, pemetaan KUGI, dan layer yang sudah terbit di Geoportal untuk setiap perangkat daerah."
           actions={
-            <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5")}>
-              Buka verifikasi data
-            </Link>
+            <>
+              <SyncButton onSynced={fetchData} />
+              <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5")}>
+                Buka verifikasi data
+              </Link>
+            </>
           }
         />
 
@@ -299,7 +300,7 @@ function ProdusenContent() {
                     <TableHead className="w-[60px] md:w-[80px] text-center font-cond font-semibold">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="animate-reveal">
                   {filteredOpds.map((opd, idx) => {
                     const opdParam = opd.username_jigd || opd.id;
 
@@ -387,7 +388,6 @@ function ProdusenContent() {
         </section>
       </main>
 
-      <Footer />
     </div>
   );
 }
@@ -396,7 +396,7 @@ export default function ProdusenPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-paper">
+        <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-qty" />
         </div>
       }

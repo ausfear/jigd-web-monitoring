@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Archivo } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import "./globals.css";
 
 // Archivo variabel: sumbu wdth dipakai untuk judul rapat (utility font-cond)
@@ -25,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-full flex flex-col font-sans bg-paper text-ink selection:bg-qty selection:text-sheet">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          {children}
+          {/* Navbar dan footer dipasang sekali di sini, jadi tidak dimuat ulang saat pindah halaman */}
+          <Navbar />
+          <div className="flex flex-1 flex-col">{children}</div>
+          <Footer />
         </ThemeProvider>
       </body>
     </html>

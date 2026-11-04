@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useDialogState } from "@/lib/use-dialog-state";
+import { updateDaftarDataBertahap } from "@/lib/update-bertahap";
 import type { DaftarData, MasterOpd } from "@/types/database";
 
 interface OrderDialogProps {
@@ -52,23 +53,6 @@ function pindahkan<T>(list: T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
-}
-
-/** Jalankan pembaruan per kelompok kecil agar tidak membanjiri Supabase. */
-async function updateBertahap(
-  rows: { id: string; urutan: number }[],
-  onProgress: (done: number) => void
-) {
-  const UKURAN = 10;
-  for (let i = 0; i < rows.length; i += UKURAN) {
-    const batch = rows.slice(i, i + UKURAN);
-    const results = await Promise.all(
-      batch.map((r) => supabase.from("daftar_data").update({ urutan: r.urutan }).eq("id", r.id))
-    );
-    const failed = results.find((r) => r.error);
-    if (failed?.error) throw failed.error;
-    onProgress(Math.min(i + UKURAN, rows.length));
-  }
 }
 
 type Seret = { jenis: "opd" } | { jenis: "data"; opdId: string };
@@ -143,7 +127,10 @@ export function OrderDialog({ open, onOpenChange, dataList, opdList, onSuccess }
     try {
       setErrorMessage(null);
       setProgress({ done: 0, total: changed.length });
-      await updateBertahap(changed, (done) => setProgress({ done, total: changed.length }));
+      await updateDaftarDataBertahap(
+        changed.map((r) => ({ id: r.id, patch: { urutan: r.urutan } })),
+        (done) => setProgress({ done, total: changed.length })
+      );
       // Satu catatan ringkas di riwayat (diabaikan bila tabel riwayat belum dibuat).
       await supabase
         .from("riwayat_perubahan")

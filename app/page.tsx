@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { Neatline } from "@/components/lembar-peta";
 import { cn } from "@/lib/utils";
 
@@ -27,8 +25,7 @@ const SHEETS = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar currentPage="home" />
+    <div className="flex flex-1 flex-col">
 
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-14 pb-16 sm:pt-20">
         <section className="max-w-[60rem]">
@@ -93,7 +90,6 @@ export default function Home() {
         </section>
       </main>
 
-      <Footer />
     </div>
   );
 }

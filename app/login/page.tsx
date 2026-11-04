@@ -3,8 +3,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -69,8 +67,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar currentPage="login" />
+    <div className="flex flex-1 flex-col">
 
       <main className="flex-1 flex items-start justify-center px-4 sm:px-6 pt-14 pb-16 sm:pt-20">
         <div className="w-full max-w-[26rem]">
@@ -157,7 +154,6 @@ export default function LoginPage() {
         </div>
       </main>
 
-      <Footer />
     </div>
   );
 }

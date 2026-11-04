@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { SyncButton } from "@/components/sync-button";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { PageHeader, controlClass } from "@/components/lembar-peta";
 import { cn } from "@/lib/utils";
@@ -234,8 +233,7 @@ function DatasetsContent() {
   const endIndex = Math.min(currentPage * pageSize, filteredLayers.length);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar currentPage="datasets" />
+    <div className="flex flex-1 flex-col">
 
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <DbErrorBanner message={loadError} />
@@ -246,6 +244,7 @@ function DatasetsContent() {
               {isLoading ? "Memuat layer…" : `${layers.length} layer`} di GeoNode JIGD beserta pemilik, tipe geometri, dan sistem koordinatnya.
             </>
           }
+          actions={<SyncButton onSynced={fetchData} />}
         />
 
         {/* Catalog Table Section */}
@@ -399,7 +398,7 @@ function DatasetsContent() {
                     <TableHead className="w-[60px] md:w-[80px] text-center font-cond font-semibold">Buka</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="animate-reveal">
                   {paginatedLayers.map((layer, idx) => (
                     <TableRow
                       key={layer.uuid || layer.id_dataset || idx}
@@ -529,7 +528,6 @@ function DatasetsContent() {
         </section>
       </main>
 
-      <Footer />
     </div>
   );
 }
@@ -538,7 +536,7 @@ export default function DatasetsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-paper">
+        <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-qty" />
         </div>
       }

@@ -107,9 +107,20 @@ export function ScaleTicks() {
  * Satu kotak = satu daftar data. Semua kotak dirender kosong lebih dulu,
  * kemudian kotak terisi berubah warna berurutan dari kiri.
  */
-export function UnitGrid({ total, filled, className }: { total: number; filled: number; className?: string }) {
-  // Dua baris di layar lebar (maks. 120 kolom); di layar kecil 37 kolom.
-  const columns = Math.min(120, Math.max(1, Math.ceil(total / 2)));
+export function UnitGrid({
+  total,
+  filled,
+  columns: columnsProp,
+  className,
+}: {
+  total: number;
+  filled: number;
+  /** Jumlah kolom; samakan antartahun agar ukuran kotak sebanding. */
+  columns?: number;
+  className?: string;
+}) {
+  // Bawaan: dua baris di layar lebar (maks. 120 kolom); di layar kecil selalu 37 kolom.
+  const columns = columnsProp ?? Math.min(120, Math.max(1, Math.ceil(total / 2)));
   return (
     <div
       role="img"
@@ -205,9 +216,13 @@ export function StatStrip({ items, loading }: { items: StatItem[]; loading?: boo
         >
           <dt className="text-sm text-ink-2">{item.label}</dt>
           <dd className="mt-1 font-cond text-[34px] font-[750] leading-none tabular-nums">
-            {loading ? <SkeletonBlock className="mt-1 h-8 w-20" /> : item.value}
+            {loading ? <SkeletonBlock className="mt-1 h-8 w-20" /> : <span className="block animate-reveal">{item.value}</span>}
           </dd>
-          {item.note && <dd className="mt-1.5 text-xs text-ink-2">{loading ? <SkeletonBlock className="h-3 w-3/4" /> : item.note}</dd>}
+          {item.note && (
+            <dd className="mt-1.5 text-xs text-ink-2">
+              {loading ? <SkeletonBlock className="h-3 w-3/4" /> : <span className="block animate-reveal">{item.note}</span>}
+            </dd>
+          )}
         </div>
       ))}
     </dl>

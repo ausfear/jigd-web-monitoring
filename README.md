@@ -29,7 +29,7 @@ sudah diunggah ke GeoNode JIGD. Baris juga bisa ditandai dengan unsur
 |---|---|
 | `master_opd` | Daftar OPD. `username_jigd` = username pemilik layer di GeoNode |
 | `master_kugi` | Katalog unsur KUGI (`nama_unsur`, `kode_unsur`, …) |
-| `cache_layer_geoportal` | Cache layer GeoNode, diperbarui lewat tombol **Sinkronisasi GeoNode** |
+| `cache_layer_geoportal` | Cache layer GeoNode, diperbarui lewat tombol **Sinkronisasi JIGD** |
 | `daftar_data` | Daftar data per OPD: `tahun_berlaku`, KUGI, `layer_utama_uuid`, `layer_pelengkap_uuids`, `status_keterisian`, `urutan` |
 | `pengaturan_tahun` | Tahun aktif yang muncul di pilihan tahun aplikasi |
 
@@ -74,11 +74,12 @@ Policy RLS:
 
 ## Menu Pengaturan di Dashboard
 
-Selain tombol **Sinkronisasi GeoNode**, semua aksi Dashboard ada di menu **Pengaturan**:
+Tombol **Sinkronisasi JIGD** ada di halaman Overview, Produsen, Datasets, dan Verifikasi (hanya tampil setelah login). Semua aksi lain di Dashboard ada di menu **Pengaturan**:
 
 | Menu | Fungsi |
 |---|---|
 | Tambah data, Unggah CSV | Menambah daftar data |
+| Pilih beberapa data | Mode pilih (bulk action): centang beberapa daftar data, lalu ubah sekaligus tag/bidang, layer utama, layer pelengkap, tahun berlaku, atau KUGI |
 | Atur urutan | Mengurutkan OPD, lalu daftar data di dalam tiap OPD (seret atau tombol panah). Urutan dipakai tabel, laporan Word, dan halaman publik; nomornya tidak ditampilkan |
 | Usulan merge | Pasangan daftar data yang kemungkinan sama (mis. hasil impor tahun lain). Gabungkan lewat dialog Merge, atau tandai "Bukan data yang sama" |
 | Unduh laporan Word | Lihat bagian berikut |
@@ -98,7 +99,7 @@ Menu **Unduh laporan Word** di Dashboard menghasilkan dokumen "Tingkat Keterisia
 ## Alur kerja tahunan
 
 1. **Tambahkan tahun baru** lewat Dashboard → Pengaturan → **Pengaturan tahun**. Contoh: tambahkan 2027 saat daftar data 2027 terbit. Tahun lama yang tidak lagi dipantau bisa dinonaktifkan; datanya tidak terhapus.
-2. **Sinkronisasi GeoNode** di Dashboard. Langkah ini:
+2. **Sinkronisasi JIGD** (tombol di halaman mana pun selain Beranda). Langkah ini:
    - memperbarui cache layer;
    - menghapus layer yang sudah dihapus dari GeoNode;
    - menambahkan OPD baru. Nama OPD yang sudah ada tidak diubah.

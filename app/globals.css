@@ -178,6 +178,13 @@
   animation: unit-fill 0.25s ease-out both;
   animation-delay: calc(var(--i, 0) * 4ms + 0.15s);
 }
+/* Isi yang menggantikan skeleton: muncul halus, bukan tiba-tiba (opacity + geser 3px, murah untuk GPU) */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(3px); }
+}
+@utility animate-reveal {
+  animation: reveal 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .animate-bar-grow, .animate-unit-fill { animation: none; }
+  .animate-bar-grow, .animate-unit-fill, .animate-reveal { animation: none; }
 }

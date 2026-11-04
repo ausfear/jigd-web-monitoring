@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { SyncButton } from "@/components/sync-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Neatline, FillBar, ScaleTicks, UnitGrid, StatusKey, Swatch } from "@/components/lembar-peta";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
@@ -71,7 +70,8 @@ export default function OverviewPage() {
     [daftarData, tahunAktif]
   );
   const latest = yearly[0] ?? { year: new Date().getFullYear(), rows: [], total: 0, filled: 0 };
-  const olderYears = yearly.slice(1);
+  // Kolom kotak sama untuk semua tahun (dari tahun dengan daftar data terbanyak)
+  const unitColumns = Math.min(120, Math.max(1, Math.ceil(Math.max(0, ...yearly.map((y) => y.total)) / 2)));
 
   // Ringkasan tahun terbaru (panel keterangan)
   const summary = useMemo(() => {
@@ -120,13 +120,13 @@ export default function OverviewPage() {
   }, [layers]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar currentPage="overview" />
+    <div className="flex flex-1 flex-col">
 
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <DbErrorBanner message={loadError} />
 
-        <header className="md:mx-4">
+        <header className="md:mx-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
           <h1 className="font-cond text-[32px] md:text-[40px] font-[750] leading-[1.05]">
             Keterisian data geospasial Kalimantan Timur
           </h1>
@@ -134,12 +134,14 @@ export default function OverviewPage() {
             {isLoading ? (
               <Skeleton className="h-4 w-80 max-w-full" />
             ) : (
-              <>
+              <span className="block animate-reveal">
                 {latest.total} daftar data {latest.year} dari {summary.opdCount} OPD, dicocokkan dengan{" "}
                 {totalLayers} layer di Geoportal JIGD.
-              </>
+              </span>
             )}
           </div>
+          </div>
+          <SyncButton onSynced={fetchData} className="self-start sm:self-auto" />
         </header>
 
         <Neatline className="mt-10">
@@ -164,38 +166,23 @@ export default function OverviewPage() {
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="grid grid-cols-[48px_1fr] md:grid-cols-[56px_1fr] items-baseline gap-4 py-2.5">
-                      <b className="font-cond text-lg">{latest.year}</b>
-                      <span className="text-sm text-ink-2 tabular-nums">
-                        {latest.total > 0
-                          ? `${latest.filled} dari ${latest.total} terisi (${latestPercent}%)`
-                          : "Belum ada daftar data untuk tahun ini."}
-                      </span>
-                    </div>
-                    {latest.total > 0 && <UnitGrid total={latest.total} filled={latest.filled} />}
-
-                    {olderYears.map((y) => (
-                      <div
-                        key={y.year}
-                        className="mt-2.5 grid grid-cols-[48px_1fr] md:grid-cols-[56px_1fr_150px] items-center gap-x-4 gap-y-1 border-t border-dashed border-rule pt-3"
-                      >
-                        <b className="font-cond text-lg">{y.year}</b>
-                        {y.total > 0 ? (
-                          <>
-                            <FillBar percent={percentOf(y.filled, y.total)} size="lg" label={`${y.filled} dari ${y.total} terisi`} />
-                            <span className="col-start-2 md:col-start-auto text-sm text-ink-2 tabular-nums">
-                              {y.filled} dari {y.total} terisi
-                            </span>
-                          </>
-                        ) : (
-                          <span className="md:col-span-2 text-sm italic text-ink-2">Belum ada daftar data untuk tahun ini.</span>
-                        )}
+                  <div className="animate-reveal">
+                    {yearly.map((y, i) => (
+                      <div key={y.year} className={i > 0 ? "mt-3 border-t border-dashed border-rule pt-1" : undefined}>
+                        <div className="grid grid-cols-[48px_1fr] md:grid-cols-[56px_1fr] items-baseline gap-4 py-2.5">
+                          <b className="font-cond text-lg">{y.year}</b>
+                          <span className="text-sm text-ink-2 tabular-nums">
+                            {y.total > 0
+                              ? `${y.filled} dari ${y.total} terisi (${percentOf(y.filled, y.total)}%)`
+                              : "Belum ada daftar data untuk tahun ini."}
+                          </span>
+                        </div>
+                        {y.total > 0 && <UnitGrid total={y.total} filled={y.filled} columns={unitColumns} />}
                       </div>
                     ))}
 
-                    <StatusKey note={latest.total > 0 ? "Satu kotak = satu daftar data" : undefined} />
-                  </>
+                    <StatusKey note={yearly.some((y) => y.total > 0) ? "Satu kotak = satu daftar data" : undefined} />
+                  </div>
                 )}
               </section>
 
@@ -212,15 +199,17 @@ export default function OverviewPage() {
                       </div>
                     ))
                   ) : geometryData.length === 0 ? (
-                    <p className="text-sm text-ink-2">Belum ada layer di cache. Jalankan Sinkronisasi GeoNode.</p>
+                    <p className="text-sm text-ink-2">Belum ada layer di cache. Jalankan Sinkronisasi JIGD.</p>
                   ) : (
-                    geometryData.map((g) => (
+                    <div className="animate-reveal">
+                    {geometryData.map((g) => (
                       <div key={g.name} className="grid grid-cols-[110px_1fr_40px] items-center gap-3 py-[5px] text-sm">
                         <span>{g.name}</span>
                         <span className="h-3.5 min-w-[3px] bg-qty" style={{ width: `${(g.count / maxGeometry) * 100}%` }} />
                         <span className="text-right tabular-nums">{g.count}</span>
                       </div>
-                    ))
+                    ))}
+                    </div>
                   )}
                 </div>
 
@@ -243,7 +232,7 @@ export default function OverviewPage() {
                       </div>
                     </>
                   ) : sridData.length > 0 && (
-                    <>
+                    <div className="animate-reveal">
                       <div className="flex h-[26px] border border-ink">
                         {sridData.map((s, i) => (
                           <span
@@ -263,7 +252,7 @@ export default function OverviewPage() {
                           </li>
                         ))}
                       </ul>
-                    </>
+                    </div>
                   )}
                 </div>
               </section>
@@ -289,7 +278,7 @@ export default function OverviewPage() {
                   </div>
                 </div>
               ) : (
-                <>
+                <div className="animate-reveal">
                   <div className="font-cond mt-1.5 mb-3 text-[56px] font-[750] leading-none tabular-nums">
                     {latestPercent}
                     <small className="text-[22px] font-medium text-ink-2">%</small>
@@ -322,14 +311,13 @@ export default function OverviewPage() {
                   <p className="mt-4 text-xs text-ink-2">
                     Sumber: daftar data {latest.year} dan cache layer Geoportal JIGD.
                   </p>
-                </>
+                </div>
               )}
             </aside>
           </div>
         </Neatline>
       </main>
 
-      <Footer />
     </div>
   );
 }

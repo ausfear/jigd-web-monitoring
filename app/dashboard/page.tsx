@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { DbErrorBanner } from "@/components/db-error-banner";
+import { SyncButton } from "@/components/sync-button";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { PageHeader, StatStrip, StatusLabel, Swatch, controlClass } from "@/components/lembar-peta";
 import { cn } from "@/lib/utils";
@@ -25,7 +24,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  RefreshCw,
   Search,
   ExternalLink,
   MoreHorizontal,
@@ -46,6 +44,7 @@ import {
   FileDown,
   History,
   CalendarCog,
+  ListChecks,
 } from "lucide-react";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
 import { fetchTahunAktif, TAHUN_DEFAULT } from "@/lib/tahun";
@@ -60,6 +59,7 @@ import { ReportDownloadDialog } from "@/components/dashboard/report-download-dia
 import { OrderDialog } from "@/components/dashboard/order-dialog";
 import { MergeSuggestionsDialog } from "@/components/dashboard/merge-suggestions-dialog";
 import { HistoryDialog } from "@/components/dashboard/history-dialog";
+import { BulkEditDialog } from "@/components/dashboard/bulk-edit-dialog";
 
 /**
  * Ambil seluruh data dashboard dari Supabase secara paralel (tabel besar diambil per 1.000 baris).
@@ -158,8 +158,6 @@ function DashboardContent() {
   // UI & Loading States
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // Filters & Search (disimpan di URL: ?opd=&tahun=&q=&page=)
   const selectedYear = searchParams.get("tahun") ?? "all";
@@ -188,8 +186,21 @@ function DashboardContent() {
   const [usulanList, setUsulanList] = useState<UsulanMerge[]>([]);
   // Dialog yang dibuka dari menu Pengaturan
   const [menuDialog, setMenuDialog] = useState<
-    null | "tambah" | "csv" | "urutan" | "usulan" | "laporan" | "riwayat" | "tahun"
+    null | "tambah" | "csv" | "urutan" | "usulan" | "laporan" | "riwayat" | "tahun" | "bulk"
   >(null);
+  // Mode pilih untuk bulk action: pilihan bertahan saat pindah halaman atau mengganti filter
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelected = (ids: string[], on: boolean) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
   const menuDialogProps = (key: NonNullable<typeof menuDialog>) => ({
     open: menuDialog === key,
     onOpenChange: (open: boolean) => setMenuDialog(open ? key : null),
@@ -234,40 +245,6 @@ function DashboardContent() {
   }, [fetchData]);
 
   /**
-   * Trigger GeoNode Sync manually
-   */
-  const handleSyncGeoNode = async () => {
-    try {
-      setIsSyncing(true);
-      setSyncStatus("Menghubungkan ke GeoNode API JIGD Kaltim...");
-
-      const res = await fetch("/api/sync-jigd");
-      const result = await res.json();
-
-      if (result.success) {
-        setSyncStatus(
-          `Berhasil sinkron: ${result.synced_count} layer, ${result.opd_count || 0} OPD terdata` +
-            (result.new_opd_count ? ` (${result.new_opd_count} OPD baru)` : "") +
-            (result.removed_count ? `, ${result.removed_count} layer usang dihapus dari cache.` : ".") +
-            (result.orphaned_data_count
-              ? ` ${result.orphaned_data_count} daftar data merujuk layer yang dihapus; pilih penggantinya lewat Verifikasi.`
-              : "")
-        );
-        await fetchData();
-        // Pesan yang meminta tindakan tetap tampil sampai ditutup.
-        if (!result.orphaned_data_count) setTimeout(() => setSyncStatus(null), 6000);
-      } else {
-        setSyncStatus(`Gagal sinkron: ${result.error || "Terjadi kesalahan"}`);
-      }
-    } catch (err) {
-      console.error("Sync trigger error:", err);
-      setSyncStatus("Gagal menjalankan sinkronisasi.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  /**
    * Delete single record
    */
   const handleDeleteRecord = async (id: string, name: string) => {
@@ -288,7 +265,7 @@ function DashboardContent() {
    */
   const handleSeedSampleData = async () => {
     if (opdList.length === 0) {
-      alert("Master OPD belum tersedia. Silakan klik 'Sinkronisasi GeoNode' terlebih dahulu.");
+      alert("Master OPD belum tersedia. Silakan klik 'Sinkronisasi JIGD' terlebih dahulu.");
       return;
     }
 
@@ -510,8 +487,7 @@ function DashboardContent() {
     filteredData.length > 0 ? Math.round((totalFilled / filteredData.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar currentPage="dashboard" />
+    <div className="flex flex-1 flex-col">
 
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <PageHeader
@@ -519,16 +495,7 @@ function DashboardContent() {
           description="Cocokkan setiap daftar data dengan layer Geoportal dan unsur KUGI-nya. Urutan mengikuti nomor pada sheet Daftar Data."
           actions={
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSyncGeoNode}
-                disabled={isSyncing}
-                className="h-9 border-ink bg-transparent px-3 text-sm text-ink hover:bg-ink/5"
-              >
-                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "Menyinkronkan…" : "Sinkronisasi GeoNode"}
-              </Button>
+              <SyncButton onSynced={fetchData} />
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -555,6 +522,10 @@ function DashboardContent() {
                   <DropdownMenuItem onClick={() => setMenuDialog("csv")} className="cursor-pointer">
                     <Upload className="h-4 w-4 mr-1 text-qty" />
                     Unggah CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSelectMode(true)} className="cursor-pointer">
+                    <ListChecks className="h-4 w-4 mr-1 text-qty" />
+                    Pilih beberapa data
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setMenuDialog("urutan")} className="cursor-pointer">
                     <ArrowUpDown className="h-4 w-4 mr-1 text-qty" />
@@ -587,16 +558,6 @@ function DashboardContent() {
         />
 
         <DbErrorBanner message={loadError} />
-
-        {/* Sync Status Banner */}
-        {syncStatus && (
-          <div role="status" className="mb-6 flex items-center justify-between gap-3 border border-qty border-l-4 bg-sheet p-3.5 text-sm text-ink animate-in fade-in duration-200">
-            <span>{syncStatus}</span>
-            <button onClick={() => setSyncStatus(null)} aria-label="Tutup pesan" className="px-1 text-lg leading-none text-ink-2 hover:text-ink cursor-pointer">
-              ×
-            </button>
-          </div>
-        )}
 
         <StatStrip
           loading={isLoading}
@@ -768,6 +729,23 @@ function DashboardContent() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-ink hover:bg-transparent">
+                    {selectMode && (
+                      <TableHead className="w-10 py-3.5 pl-4 sm:pl-5 pr-0">
+                        <input
+                          type="checkbox"
+                          aria-label="Pilih semua daftar data di halaman ini"
+                          checked={paginatedData.length > 0 && paginatedData.every((d) => selectedIds.has(d.id))}
+                          ref={(el) => {
+                            if (el) {
+                              const some = paginatedData.some((d) => selectedIds.has(d.id));
+                              el.indeterminate = some && !paginatedData.every((d) => selectedIds.has(d.id));
+                            }
+                          }}
+                          onChange={(e) => toggleSelected(paginatedData.map((d) => d.id), e.target.checked)}
+                          className="h-4 w-4 accent-qty cursor-pointer"
+                        />
+                      </TableHead>
+                    )}
                     {/* Column 1: Perangkat Daerah */}
                     <TableHead className="hidden lg:table-cell font-cond font-semibold text-sm py-3.5 pl-5 min-w-[250px] whitespace-normal">
                       Perangkat daerah
@@ -790,7 +768,7 @@ function DashboardContent() {
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="animate-reveal">
                   {paginatedData.map((item) => {
                     const primaryLayer = item.layer_utama_uuid ? layerMap.get(item.layer_utama_uuid) : null;
                     const datasetUrl = primaryLayer
@@ -806,17 +784,29 @@ function DashboardContent() {
                     return (
                       <TableRow
                         key={item.id}
-                        className="border-b border-rule hover:bg-qty/5 transition-colors"
+                        className={cn(
+                          "border-b border-rule hover:bg-qty/5 transition-colors",
+                          selectMode && selectedIds.has(item.id) && "bg-qty/10"
+                        )}
                       >
+                        {selectMode && (
+                          <TableCell className="w-10 py-3.5 pl-4 sm:pl-5 pr-0 align-top">
+                            <input
+                              type="checkbox"
+                              aria-label={`Pilih ${item.nama_data}`}
+                              checked={selectedIds.has(item.id)}
+                              onChange={(e) => toggleSelected([item.id], e.target.checked)}
+                              className="mt-0.5 h-4 w-4 accent-qty cursor-pointer"
+                            />
+                          </TableCell>
+                        )}
                         {/* 1. Perangkat Daerah: whitespace-normal break-words min-w-[250px] */}
                         <TableCell className="hidden lg:table-cell py-3.5 pl-5 align-top whitespace-normal break-words min-w-[250px]">
                           <div className="text-sm text-ink">
                             {item.master_opd?.nama_opd || "OPD belum terhubung"}
                           </div>
                           <div className="mt-0.5 text-[13px] text-ink-2 tabular-nums">
-                            {[item.master_opd?.username_jigd && `@${item.master_opd.username_jigd}`, (item.tahun_berlaku || []).join(", ")]
-                              .filter(Boolean)
-                              .join(", ")}
+                            {(item.tahun_berlaku || []).join(", ")}
                           </div>
                         </TableCell>
 
@@ -996,6 +986,46 @@ function DashboardContent() {
             </div>
           )}
 
+          {/* Bilah aksi mode pilih: menempel di bawah layar selama tabel terlihat */}
+          {selectMode && (
+            <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-x-4 gap-y-2 border-t-2 border-ink bg-sheet px-4 py-3 text-sm sm:px-5 animate-reveal">
+              <span className="font-semibold text-ink tabular-nums">{selectedIds.size} dipilih</span>
+              {filteredData.some((d) => !selectedIds.has(d.id)) && (
+                <button
+                  type="button"
+                  onClick={() => toggleSelected(filteredData.map((d) => d.id), true)}
+                  className="text-link hover:underline cursor-pointer"
+                >
+                  Pilih semua {filteredData.length} hasil filter
+                </button>
+              )}
+              {selectedIds.size > 0 && (
+                <button type="button" onClick={() => setSelectedIds(new Set())} className="text-ink-2 hover:text-ink hover:underline cursor-pointer">
+                  Kosongkan pilihan
+                </button>
+              )}
+              <span className="flex-1" />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setMenuDialog("bulk")}
+                disabled={selectedIds.size === 0}
+                className="h-9 bg-qty px-3 text-sheet hover:bg-qty/90"
+              >
+                Ubah data terpilih
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={exitSelectMode}
+                className="h-9 border-ink bg-transparent px-3 text-ink hover:bg-ink/5"
+              >
+                Selesai
+              </Button>
+            </div>
+          )}
+
           {/* Pagination Controls & Rows Per Page Selector */}
           {!isLoading && filteredData.length > 0 && (
             <div className="px-4 py-3 sm:px-5 border-t border-ink flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-ink-2">
@@ -1059,7 +1089,7 @@ function DashboardContent() {
           )}
 
           <div className="px-4 py-3 sm:px-5 border-t border-rule text-[13px] text-ink-2 flex flex-col sm:flex-row items-center justify-between gap-1">
-            <span>Layer dicocokkan dengan cache Geoportal JIGD. Perbarui lewat Sinkronisasi GeoNode.</span>
+            <span>Layer dicocokkan dengan cache Geoportal JIGD. Perbarui lewat Sinkronisasi JIGD.</span>
             {!isLoading && (
               <span className={loadError ? "text-bound" : undefined}>
                 Database {loadError ? "tidak terhubung" : "terhubung"}
@@ -1101,6 +1131,15 @@ function DashboardContent() {
       <ReportDownloadDialog years={availableYears} defaultYear={latestYear} dataList={dataList} {...menuDialogProps("laporan")} />
       <HistoryDialog opdList={opdList} kugiList={kugiList} layerMap={layerMap} {...menuDialogProps("riwayat")} />
       <YearSettingsDialog years={tahunAktif} onSuccess={fetchData} {...menuDialogProps("tahun")} />
+      <BulkEditDialog
+        records={dataList.filter((d) => selectedIds.has(d.id))}
+        cachedLayers={cachedLayers}
+        kugiList={kugiList}
+        availableTags={availableTags}
+        yearOptions={availableYears}
+        onSuccess={fetchData}
+        {...menuDialogProps("bulk")}
+      />
 
       <MergeDataDialog
         sourceRecord={mergingRecord}
@@ -1119,7 +1158,6 @@ function DashboardContent() {
         onSuccess={fetchData}
       />
 
-      <Footer />
     </div>
   );
 }
@@ -1128,7 +1166,7 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-paper">
+        <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-qty" />
         </div>
       }
