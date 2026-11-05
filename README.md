@@ -19,7 +19,7 @@ sudah diunggah ke GeoNode JIGD. Baris juga bisa ditandai dengan unsur
 
 ## Teknologi
 
-- Next.js 16 (App Router, `proxy.ts`), React 19, Tailwind CSS 4, komponen shadcn/Base UI, Recharts
+- Next.js 16 (App Router, `proxy.ts`), React 19, Tailwind CSS 4, komponen shadcn/Base UI
 - Supabase: PostgreSQL, Auth, Row Level Security
 - GeoNode API JIGD (`/api/datasets/`, `/api/owners/`) dan GeoServer WFS `DescribeFeatureType`, untuk tipe geometri dan jumlah atribut
 
@@ -29,9 +29,12 @@ sudah diunggah ke GeoNode JIGD. Baris juga bisa ditandai dengan unsur
 |---|---|
 | `master_opd` | Daftar OPD. `username_jigd` = username pemilik layer di GeoNode |
 | `master_kugi` | Katalog unsur KUGI (`nama_unsur`, `kode_unsur`, …) |
-| `cache_layer_geoportal` | Cache layer GeoNode, diperbarui lewat tombol **Sinkronisasi JIGD** |
+| `cache_layer_geoportal` | Cache layer GeoNode, diperbarui lewat tombol **Sinkronisasi JIGD** dan jadwal otomatis harian |
 | `daftar_data` | Daftar data per OPD: `tahun_berlaku`, KUGI, `layer_utama_uuid`, `layer_pelengkap_uuids`, `status_keterisian`, `urutan` |
 | `pengaturan_tahun` | Tahun aktif yang muncul di pilihan tahun aplikasi |
+| `usulan_merge` | Pasangan daftar data yang kemungkinan sama, ditinjau lewat Pengaturan → Usulan merge |
+| `riwayat_perubahan` | Catatan otomatis (trigger) setiap tambah, ubah, dan hapus daftar data |
+| `log_sinkronisasi` | Catatan setiap sinkronisasi (manual/terjadwal, berhasil/gagal). Waktu sinkron berhasil terakhir dibaca publik lewat fungsi `waktu_sinkron_terakhir()` |
 
 - **Status keterisian**: *Terisi* jika baris punya Layer Utama.
 - **Urutan tampil**: kolom `urutan` mengikuti nomor baris pada sheet Daftar Data di file Excel. Baris tanpa `urutan`, misalnya data baru, tampil paling akhir.
@@ -87,6 +90,15 @@ Tombol **Sinkronisasi JIGD** ada di halaman Overview, Produsen, Datasets, dan Ve
 | Pengaturan tahun | Tahun aktif |
 
 Di dialog Verifikasi, selama Layer Utama belum dipilih, muncul **saran layer** milik OPD tersebut yang judul atau namanya mirip dengan nama data (`lib/layer-suggest.ts`), lengkap dengan keterangan bila layer itu sudah dipakai daftar data lain.
+
+## Sinkronisasi terjadwal
+
+Workflow GitHub Actions `.github/workflows/sinkron-jigd-terjadwal.yml` menyinkronkan cache layer setiap hari pukul 06.00 WITA. Kodenya sama dengan tombol **Sinkronisasi JIGD** (`lib/sync/sinkron-jigd.ts`), dijalankan lewat `scripts/sinkron-terjadwal.mts`.
+
+- **Secret repo** (Settings → Secrets and variables → Actions): `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API Keys → `service_role`). Service role key hanya dipakai di GitHub Actions; jangan dimasukkan ke `.env.local` atau ke variabel `NEXT_PUBLIC_*`.
+- **Migrasi**: `migrations/2026-11-05_log_sinkronisasi.sql`, agar setiap sinkronisasi tercatat dan halaman Overview, Produsen, Datasets, serta Verifikasi menampilkan kapan data terakhir disinkronkan. Bila lebih dari 36 jam, keterangan itu ditandai "mungkin sudah usang".
+- **Uji manual**: tab Actions → *Sinkronisasi JIGD Terjadwal* → *Run workflow*. Bila gagal, pesan error tampil di log workflow dan tercatat di `log_sinkronisasi`.
+- GitHub menonaktifkan jadwal bila repo tidak ada commit selama 60 hari; aktifkan lagi dari tab Actions.
 
 ## Laporan Word
 

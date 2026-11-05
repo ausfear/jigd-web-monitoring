@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/lib/use-auth-user";
+import { EVENT_SINKRON_SELESAI } from "@/components/last-sync-info";
 import { cn } from "@/lib/utils";
 
 type Pesan = { text: string; tone: "info" | "ok" | "error" };
@@ -26,7 +27,7 @@ export function SyncButton({ onSynced, className }: { onSynced?: () => unknown; 
       setIsSyncing(true);
       setPesan({ text: "Menghubungkan ke GeoNode JIGD…", tone: "info" });
 
-      const res = await fetch("/api/sync-jigd");
+      const res = await fetch("/api/sync-jigd", { method: "POST" });
       const result = await res.json();
 
       if (!result.success) {
@@ -42,6 +43,7 @@ export function SyncButton({ onSynced, className }: { onSynced?: () => unknown; 
           ? ` ${result.orphaned_data_count} daftar data merujuk layer yang dihapus; pilih penggantinya lewat Verifikasi.`
           : "");
       setPesan({ text, tone: "ok" });
+      window.dispatchEvent(new Event(EVENT_SINKRON_SELESAI));
       await onSynced?.();
       // Pesan yang meminta tindakan tetap tampil sampai ditutup
       if (!result.orphaned_data_count) {

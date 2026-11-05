@@ -93,6 +93,8 @@ CREATE TRIGGER trg_sinkron_status_keterisian
 
 -- Tabel usulan_merge dan riwayat_perubahan (beserta trigger riwayat) ada di
 -- migrations/2026-10-31_usulan_merge_dan_riwayat.sql.
+-- Tabel log_sinkronisasi dan fungsi waktu_sinkron_terakhir() ada di
+-- migrations/2026-11-05_log_sinkronisasi.sql.
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_daftar_data_opd_id ON daftar_data(opd_id);

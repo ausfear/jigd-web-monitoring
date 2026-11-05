@@ -177,10 +177,13 @@ export function StatusLabel({ filled }: { filled: boolean }) {
 export function PageHeader({
   title,
   description,
+  meta,
   actions,
 }: {
   title: ReactNode;
   description?: ReactNode;
+  /** Baris keterangan kecil di bawah deskripsi (mis. waktu sinkronisasi terakhir). */
+  meta?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -188,6 +191,7 @@ export function PageHeader({
       <div>
         <h1 className="font-cond text-[32px] font-[750] leading-[1.05] md:text-[40px]">{title}</h1>
         {description && <div className="mt-2 max-w-[70ch] text-ink-2">{description}</div>}
+        {meta && <div className="mt-1.5">{meta}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2.5">{actions}</div>}
     </header>

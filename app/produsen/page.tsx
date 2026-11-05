@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DbErrorBanner } from "@/components/db-error-banner";
 import { SyncButton } from "@/components/sync-button";
+import { LastSyncInfo } from "@/components/last-sync-info";
 import { FillBar, PageHeader, StatStrip, controlClass } from "@/components/lembar-peta";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { useQueryParams, useDebouncedQueryText } from "@/lib/use-query-params";
@@ -189,6 +190,7 @@ function ProdusenContent() {
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <DbErrorBanner message={loadError} />
         <PageHeader
+          meta={<LastSyncInfo />}
           title="Produsen data geospasial"
           description="Kesiapan daftar data, pemetaan KUGI, dan layer yang sudah terbit di Geoportal untuk setiap perangkat daerah."
           actions={

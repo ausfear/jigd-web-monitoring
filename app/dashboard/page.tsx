@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { DbErrorBanner } from "@/components/db-error-banner";
 import { SyncButton } from "@/components/sync-button";
+import { LastSyncInfo } from "@/components/last-sync-info";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { PageHeader, StatStrip, StatusLabel, Swatch, controlClass } from "@/components/lembar-peta";
 import { cn } from "@/lib/utils";
@@ -491,6 +492,7 @@ function DashboardContent() {
 
       <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-10 pt-9 pb-16">
         <PageHeader
+          meta={<LastSyncInfo />}
           title="Verifikasi daftar data"
           description="Cocokkan setiap daftar data dengan layer Geoportal dan unsur KUGI-nya. Urutan mengikuti nomor pada sheet Daftar Data."
           actions={

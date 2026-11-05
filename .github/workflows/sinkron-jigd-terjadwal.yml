@@ -1,0 +1,43 @@
+# Sinkronisasi cache layer dengan GeoNode JIGD setiap pagi, tanpa perlu menekan tombol.
+# Hasilnya (berhasil/gagal) tercatat di tabel log_sinkronisasi dan waktunya tampil di halaman web.
+#
+# Persiapan (sekali saja): GitHub repo > Settings > Secrets and variables > Actions
+#   SUPABASE_URL               = nilai NEXT_PUBLIC_SUPABASE_URL di .env.local (sudah dipakai Keep Alive)
+#   SUPABASE_SERVICE_ROLE_KEY  = Supabase > Project Settings > API Keys > service_role (secret)
+# serta jalankan migrations/2026-11-05_log_sinkronisasi.sql di Supabase SQL Editor.
+# Uji manual: tab Actions > "Sinkronisasi JIGD Terjadwal" > Run workflow.
+#
+# Catatan: GitHub menonaktifkan jadwal di repo yang tidak ada aktivitas (commit) selama 60 hari;
+# aktifkan lagi dari tab Actions bila itu terjadi.
+
+name: Sinkronisasi JIGD Terjadwal
+
+on:
+  schedule:
+    - cron: "0 22 * * *" # setiap hari 22:00 UTC = 06:00 WITA
+  workflow_dispatch:
+
+concurrency:
+  group: sinkron-jigd
+  cancel-in-progress: false
+
+jobs:
+  sinkron:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Pasang dependensi
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Sinkronisasi GeoNode JIGD
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/sinkron-terjadwal.mts

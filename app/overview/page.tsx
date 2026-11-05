@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { DbErrorBanner } from "@/components/db-error-banner";
 import { SyncButton } from "@/components/sync-button";
+import { LastSyncInfo } from "@/components/last-sync-info";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Neatline, FillBar, ScaleTicks, UnitGrid, StatusKey, Swatch } from "@/components/lembar-peta";
 import { supabase, fetchAllRows, DB_UNREACHABLE_MESSAGE } from "@/lib/supabase";
@@ -140,6 +141,7 @@ export default function OverviewPage() {
               </span>
             )}
           </div>
+          <LastSyncInfo className="mt-1.5" />
           </div>
           <SyncButton onSynced={fetchData} className="self-start sm:self-auto" />
         </header>
